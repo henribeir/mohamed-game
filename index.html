@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06070F">
+<title>Mohamed</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icone-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mohamed">
+<style>
+:root{
+  --acc:#7B2FF7;--acc-esc:#5A17C9;--acc-cl:#F0E8FF;
+  --ok:#1FC46B;--ok-esc:#129A52;--ok-cl:#E2FBEE;
+  --erro:#FF4B5C;--erro-esc:#D12C3D;--erro-cl:#FFE9EB;
+  --ouro:#FFC531;--ouro-esc:#D99A00;
+  --tx:#1E1240;--tx2:#7A7396;--cinza:#E8E5F0;--cinza-esc:#BDB8CE;
+  --fonte:ui-rounded,"SF Pro Rounded","Nunito","Varela Round","Arial Rounded MT Bold",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#fff}
+body{font-family:var(--fonte);color:var(--tx);font-size:20px;line-height:1.3;overflow-x:hidden;-webkit-user-select:none;user-select:none;overscroll-behavior:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-action:manipulation}
+input{font:inherit;-webkit-user-select:text;user-select:text}
+svg{display:block}
+[hidden]{display:none!important}
+
+/* ---------- telas ---------- */
+.tela{display:none;flex-direction:column;min-height:100dvh;max-width:480px;margin:0 auto;padding:24px 20px calc(24px + env(safe-area-inset-bottom))}
+.tela.ativa{display:flex;animation:entra .3s ease-out}
+.centro{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center}
+.titulo{font-size:36px;font-weight:900;letter-spacing:-.5px;line-height:1.1}
+.sub{font-size:20px;font-weight:800;color:var(--tx2)}
+.logo{font-size:56px;font-weight:900;color:var(--acc);letter-spacing:-1.5px}
+.logo-heroi{width:120px;height:158px;animation:flutua 2.4s ease-in-out infinite}
+.logo-heroi svg{width:100%;height:100%}
+.topo{display:flex;align-items:center;gap:10px}
+.espaco{flex:1}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:8px 14px;border-radius:999px;background:var(--acc-cl);color:var(--acc);font-weight:900;font-size:18px;white-space:nowrap}
+
+/* ---------- botões e campos ---------- */
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:64px;padding:0 28px;border-radius:999px;background:var(--acc);color:#fff;font-size:22px;font-weight:900;box-shadow:0 6px 0 var(--acc-esc);transition:transform .08s,box-shadow .08s}
+.btn:active{transform:translateY(5px);box-shadow:0 1px 0 var(--acc-esc)}
+.btn:disabled{background:var(--cinza);color:var(--cinza-esc);box-shadow:0 6px 0 var(--cinza-esc);transform:none}
+.btn.ok{background:var(--ok);box-shadow:0 6px 0 var(--ok-esc)}
+.btn.erro{background:var(--erro);box-shadow:0 6px 0 var(--erro-esc)}
+.btn.claro{background:#fff;color:var(--acc);box-shadow:0 6px 0 var(--cinza),inset 0 0 0 3px var(--cinza)}
+.btn-ico{flex:0 0 auto;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-size:24px;font-weight:900;background:var(--acc-cl);color:var(--acc);transition:transform .1s}
+.btn-ico:active{transform:scale(.9)}
+.btn-ico svg{width:34px;height:45px}
+.rodape{display:flex;flex-direction:column;gap:14px;margin-top:20px}
+.campo{width:100%;min-height:64px;border-radius:24px;border:3px solid var(--cinza);padding:0 20px;font-size:22px;font-weight:800;color:var(--tx);text-align:center;outline:0;background:#fff;transition:border-color .15s}
+.campo:focus{border-color:var(--acc)}
+.campo::placeholder{color:var(--cinza-esc)}
+
+/* ---------- personagem ---------- */
+.preview{width:150px;height:198px}
+.preview svg,.premio svg{width:100%;height:100%}
+.pop{animation:pop .3s cubic-bezier(.3,1.6,.6,1)}
+.grupos{width:100%}
+.grupo{display:flex;align-items:center;gap:10px;margin-top:14px}
+.grupo>span{font-size:28px;width:36px;text-align:center}
+.opcoes{flex:1;display:flex;flex-wrap:wrap;gap:8px}
+.op{width:58px;height:58px;border-radius:18px;background:#F6F4FB;display:grid;place-items:center;font-size:24px;border:3px solid transparent;transition:transform .1s}
+.op:active{transform:scale(.9)}
+.op.sel{border-color:var(--acc);background:var(--acc-cl)}
+.op svg{width:40px;height:52px}
+.op .cor{display:block;width:36px;height:36px;border-radius:50%}
+
+/* ---------- mapa ---------- */
+#t-mapa{padding:0;height:100dvh}
+#t-mapa .topo{padding:12px 16px;border-bottom:3px solid var(--cinza)}
+.mapa-rolagem{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.mapa-rolagem>svg{width:100%;height:auto}
+.no:not(.bloq){cursor:pointer}
+.pulso{transform-box:fill-box;transform-origin:center;animation:pulso 1.6s ease-out infinite}
+.heroi-mapa{animation:flutua 1.8s ease-in-out infinite}
+
+/* ---------- dica visual (batalha) ---------- */
+.visual{margin-top:10px;display:flex;justify-content:center}
+.visual svg{width:100%;max-height:72px}
+
+/* ---------- resultado ---------- */
+.trofeu{font-size:96px;line-height:1;animation:surge .5s cubic-bezier(.3,1.6,.6,1)}
+.stats{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.stat{min-width:92px;padding:12px 10px;border-radius:20px;background:var(--acc-cl);display:flex;flex-direction:column;align-items:center;font-size:22px;font-weight:900}
+.stat small{font-size:14px;color:var(--tx2)}
+
+/* ---------- álbum ---------- */
+.secao{font-size:18px;font-weight:900;color:var(--tx2);margin:24px 0 12px}
+.medalhas{display:flex;gap:10px}
+.medalha{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;font-size:13px;font-weight:800;color:var(--tx2)}
+.medalha .m{width:66px;height:66px;border-radius:50%;display:grid;place-items:center;font-size:32px;background:linear-gradient(160deg,#FFE27A,var(--ouro));box-shadow:0 5px 0 var(--ouro-esc)}
+.medalha.falta .m{background:var(--cinza);box-shadow:0 5px 0 var(--cinza-esc);filter:grayscale(1);opacity:.5}
+.grade{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+@media (min-width:420px){.grade{grid-template-columns:repeat(3,1fr)}}
+.carta{aspect-ratio:3/4;border-radius:22px;padding:12px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;color:#fff;background:linear-gradient(160deg,var(--c1),var(--c2));box-shadow:0 6px 0 #00000022}
+.carta .em{font-size:42px;line-height:1}
+.carta b{font-size:17px;line-height:1.1}
+.carta p{font-size:14px;font-weight:700;opacity:.95}
+.carta.falta{background:var(--cinza);color:var(--cinza-esc);box-shadow:0 6px 0 var(--cinza-esc)}
+.carta.falta .em{font-size:60px;font-weight:900}
+.carta.grande{width:190px}
+.carta.vira{animation:vira .5s ease-out}
+.frases{display:flex;flex-direction:column;gap:10px}
+.frases p{padding:14px 18px;border-radius:20px;background:var(--acc-cl);font-weight:800;font-size:18px}
+
+/* ---------- sobreposições ---------- */
+.sobre{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:24px;background:#1E1240d9;animation:fade .2s}
+.caixa{width:100%;max-width:380px;background:#fff;border-radius:32px;padding:28px 22px;display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center;animation:surge .35s cubic-bezier(.3,1.6,.6,1)}
+.bau{width:170px;height:142px}
+.bau svg{width:100%;height:100%;overflow:visible}
+.bau .tampa{transform-box:fill-box;transform-origin:0 100%;transition:transform .4s cubic-bezier(.3,1.6,.6,1)}
+.bau.treme{animation:treme .45s 2}
+.bau.aberto{filter:drop-shadow(0 0 22px var(--ouro))}
+.bau.aberto .tampa{transform:translate(-4px,-16px) rotate(-30deg)}
+.premio{width:140px;height:185px;animation:pop .5s cubic-bezier(.3,1.6,.6,1)}
+.frase{font-size:24px;font-weight:900;color:var(--acc)}
+.toast{position:fixed;top:calc(14px + env(safe-area-inset-top));left:50%;z-index:60;padding:12px 20px;border-radius:999px;background:var(--tx);color:#fff;font-weight:900;font-size:18px;white-space:nowrap;animation:toast 2.6s ease forwards}
+.confete{position:fixed;inset:0;pointer-events:none;z-index:70;overflow:hidden}
+.confete i{position:absolute;top:-16px;width:10px;height:14px;border-radius:3px;animation:cai 1.6s ease-in forwards}
+
+/* ---------- painéis dos desafios (arrastar, ligar, ordenar, reta) ---------- */
+.painel{position:absolute;left:27%;right:3%;top:7%;bottom:25%;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:20px;background:#ffffffeb;box-shadow:0 5px 0 #0000001f;animation:surge .35s cubic-bezier(.3,1.6,.6,1);overflow:hidden}
+.fichas{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.ficha{position:relative;min-width:44px;height:38px;padding:0 8px;border-radius:12px;background:var(--ouro);color:#6B3E00;font-size:19px;font-weight:900;white-space:nowrap;box-shadow:0 3px 0 #0000002a;touch-action:none;transition:background .2s,opacity .2s}
+.ficha.sel{background:var(--acc);color:#fff}
+.ficha.arrasta{z-index:9;box-shadow:0 8px 14px #0000004d;transition:none}
+.ficha.ok{background:var(--ok);color:#fff}
+.ficha.usada{opacity:.25}
+.ficha.treme{animation:treme .4s}
+.conj{position:relative;display:flex;gap:4px;border-radius:16px}
+.conj .rot{position:absolute;top:1px;left:8px;font-size:15px}
+.cz{flex:1;width:100%;min-height:0;padding:20px 6px 6px;border:3px solid var(--acc);background:#7B2FF714}
+.cn{flex:1.3;padding:20px 4px 4px;border:3px solid var(--ok);background:#1FC46B1f}
+.cz>.rot{color:var(--acc)}
+.cn>.rot{color:var(--ok-esc)}
+.dentro{flex:1;display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start}
+.dentro .ficha{min-width:34px;height:30px;padding:0 6px;font-size:15px;pointer-events:none} /* o toque passa para o conjunto */
+.p-ligar{flex-direction:row;gap:10px}
+.p-ligar .col{flex:1;display:flex;flex-direction:column;gap:6px}
+.p-ligar .ficha{width:100%;height:auto;min-height:34px;padding:3px 6px;font-size:16px;line-height:1.1;white-space:normal}
+.p-ligar .ficha.ok{opacity:.55}
+.vagas{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px}
+.vaga{min-width:40px;height:36px;padding:0 4px;border-radius:10px;border:3px dashed var(--cinza-esc);display:grid;place-items:center;font-style:normal;font-weight:900;font-size:17px}
+.vaga.cheia{border:3px solid var(--ok);background:var(--ok-cl);color:var(--ok-esc)}
+.sinal{font-weight:900;color:var(--tx2)}
+.p-reta svg{width:100%;height:auto;cursor:pointer}
+
+/* ---------- tempo ativo e relatório ---------- */
+.tempo{font-variant-numeric:tabular-nums;transition:opacity .3s}
+.tempo.pausado{opacity:.5}
+.lado{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.tempo.mini{font-size:13px;font-weight:900;color:var(--tx2)}
+.tempo-grande{font-size:64px;font-weight:900;color:var(--acc);letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.barra{width:100%;height:14px;border-radius:99px;background:var(--cinza);overflow:hidden}
+.barra i{display:block;width:0;height:100%;border-radius:inherit;background:var(--acc);transition:width .5s}
+.erradas{width:100%;display:flex;flex-direction:column;gap:8px}
+.erradas .secao{margin:6px 0 0}
+.erradas .errada{display:flex;justify-content:space-between;gap:10px;padding:10px 16px;border-radius:16px;background:var(--erro-cl);color:var(--erro-esc);font-size:17px;font-weight:800;text-align:left}
+.btn.duas{flex-direction:column;gap:0;padding:8px 20px;font-size:19px;line-height:1.15}
+.btn small{display:block;font-size:15px;opacity:.85}
+
+/* ---------- fila das operações ---------- */
+.expr{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px;font-size:21px;font-weight:900}
+.expr .op{position:relative;min-width:34px;height:36px;padding:0 6px;border-radius:10px;background:var(--ouro);color:#6B3E00;font-size:21px;font-weight:900;box-shadow:0 3px 0 #0000002a}
+.expr .op.feita{background:var(--ok);color:#fff}
+.expr .op.feita::after{content:attr(data-n);position:absolute;top:-9px;right:-7px;width:20px;height:20px;border-radius:50%;background:var(--acc);color:#fff;font-size:12px;display:grid;place-items:center}
+.expr .op.treme{animation:treme .4s}
+.p-fila .vaga{min-width:56px;font-size:13px}
+
+/* ---------- streak e ranking no mapa ---------- */
+.faixa{display:flex;gap:8px;overflow-x:auto;padding:10px 16px;scrollbar-width:none}
+.faixa:empty{display:none}
+.faixa .chip{flex:0 0 auto;padding:6px 12px;font-size:15px}
+.faixa .eu{background:var(--acc);color:#fff}
+.faixa .fogo{background:#FFE9D6;color:#C2410C}
+
+/* ---------- carta rara ---------- */
+.carta.rara{background:linear-gradient(135deg,#FFD54A,#FF4FD8 45%,#7B2FF7 70%,#38BDF8);background-size:220% 220%;animation:holo 3s ease-in-out infinite;box-shadow:0 6px 0 #B45309,0 0 18px #FFC53199}
+.carta.rara.vira{animation:vira .7s ease-out,holo 3s ease-in-out .7s infinite}
+.carta .selo{padding:2px 8px;border-radius:99px;background:#fff;color:var(--acc);font-size:11px;font-weight:900}
+.carta.falta.rara-falta{outline:3px dashed var(--ouro);outline-offset:-6px}
+
+/* ---------- masmorra (vista de cima) ---------- */
+#t-masmorra{position:relative;height:100dvh;padding:10px 12px calc(12px + env(safe-area-inset-bottom));gap:10px;background:#140F2E;color:#fff}
+.mas-topo{display:flex;align-items:center;gap:10px}
+.mas-topo .btn-ico{width:44px;height:44px;font-size:20px;background:#FFFFFF1A;color:#fff}
+#mas-vidas{display:flex;font-size:18px}
+#mas-mini{height:44px;width:auto;max-width:120px}
+.mas-palco{flex:1;min-height:0;display:grid;place-items:center}
+#mas-tela{display:block;border-radius:18px;box-shadow:0 0 0 4px #FFFFFF14,0 12px 30px #0006;touch-action:none}
+.mas-controle{height:150px;display:grid;place-items:center;touch-action:none}
+.joy{position:relative;width:132px;height:132px;border-radius:50%;background:#FFFFFF12;box-shadow:inset 0 0 0 3px #FFFFFF26;touch-action:none}
+.joy i{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:var(--acc);box-shadow:0 5px 0 var(--acc-esc),0 0 18px #7B2FF788;transition:transform .12s ease-out}
+.joy.ativo i{transition:none}
+
+/* ---------- batalha por turnos ---------- */
+.batalha{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;gap:10px;padding:10px 12px calc(12px + env(safe-area-inset-bottom));background:#140F2E;animation:fade .3s}
+.arena{position:relative;flex:1;min-height:230px;border-radius:24px;overflow:hidden;background:linear-gradient(var(--a1),var(--a2))}
+.arena.balanca{animation:balanca .4s}
+.b-info{position:absolute;z-index:2;padding:8px 12px;border-radius:16px;background:#fff;color:var(--tx);box-shadow:0 4px 0 #0002}
+.b-info-m{left:4%;top:6%;min-width:150px}
+.b-info-m b{display:block;font-size:17px}
+.b-info-m small{font-size:12px;font-weight:800;color:var(--tx2)}
+.b-barra{height:10px;margin-top:5px;border-radius:9px;background:var(--cinza);overflow:hidden}
+.b-barra i{display:block;width:100%;height:100%;border-radius:inherit;transition:width .4s,background .4s}
+.b-info-h{right:4%;bottom:8%;display:flex;font-size:17px}
+.b-info-h .perde{animation:treme .4s}
+.b-chao{position:absolute;border-radius:50%;background:#0000001F}
+.b-chao-m{right:6%;top:40%;width:130px;height:26px}
+.b-chao-h{left:4%;bottom:4%;width:140px;height:28px}
+.b-arte-m{position:absolute;right:10%;top:12%;width:108px;height:108px}
+.b-arte-h{position:absolute;left:10%;bottom:7%;width:100px;height:132px}
+.b-arte-m svg,.b-arte-h svg{width:100%;height:100%;overflow:visible}
+.b-arte-m.dor{animation:treme .4s;filter:brightness(1.6)}
+.b-arte-m.investe{animation:investe .35s ease-in-out}
+.b-arte-m.desmaia,.b-arte-h.desmaia{animation:desmaia .5s ease-in forwards}
+.b-arte-h.ataca{animation:ataca .35s ease-in-out}
+.b-dano{position:absolute;z-index:3;right:6%;top:46%;font-size:22px;font-weight:900;white-space:nowrap;text-shadow:0 2px 0 #1E1240,0 0 8px #1E1240;opacity:0;pointer-events:none}
+.b-dano.pop{animation:dano .5s ease-out}
+.b-texto{position:relative;min-height:92px;padding:14px 16px;border-radius:20px;background:#fff;color:var(--tx);box-shadow:inset 0 0 0 4px var(--acc);font-size:21px;font-weight:900}
+.b-dica{margin-top:6px;font-size:16px;font-weight:800;color:var(--tx2)}
+.b-dica .visual svg{max-height:60px}
+.b-segue{position:absolute;right:10px;bottom:10px;width:40px;height:40px;border-radius:50%;background:var(--acc);color:#fff;font-size:18px;animation:pula 1s ease-in-out infinite}
+.b-respostas{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.b-resp{min-height:58px;padding:0 8px;border-radius:18px;background:#fff;color:var(--tx);font-size:22px;font-weight:900;box-shadow:0 5px 0 #FFFFFF40;transition:transform .08s}
+.b-resp.longa{font-size:17px}
+.b-resp:active{transform:translateY(3px)}
+.b-resp.certa{background:var(--ok);color:#fff}
+.b-resp.errada{background:var(--erro);color:#fff}
+.b-resp:disabled:not(.certa):not(.errada){opacity:.45}
+.b-acoes{display:flex;justify-content:center;gap:10px}
+.b-acao{padding:8px 16px;border-radius:999px;background:#FFFFFF1A;color:#fff;font-size:16px;font-weight:900}
+.b-acao:disabled{opacity:.35}
+
+/* ---------- desafio de baú e porta ---------- */
+.desafio{position:absolute;inset:0;z-index:35;display:grid;place-items:center;padding:16px;background:#140F2ECC;animation:fade .2s}
+.des-caixa{width:100%;max-width:440px;padding:16px;border-radius:28px;background:#fff;color:var(--tx);display:flex;flex-direction:column;gap:10px;animation:surge .3s cubic-bezier(.3,1.6,.6,1)}
+.des-icone{font-size:34px}
+.des-pergunta{font-size:22px;font-weight:900;text-align:center}
+.des-palco{display:flex;min-height:250px}
+.painel.solto{position:relative;inset:auto;flex:1;min-height:250px;box-shadow:none;background:#F6F4FB;animation:none}
+
+/* ---------- chefão, poderes e melhorias ---------- */
+.arena.chefe{background:linear-gradient(#2A2463,var(--a1))}
+.arena.escurece::after{content:"";position:absolute;inset:0;z-index:5;background:#000;pointer-events:none;animation:escurece .5s ease-out forwards}
+.b-arte-m.grande{right:6%;top:6%;width:140px;height:160px}
+.b-arte-m.desce{animation:desce .5s cubic-bezier(.3,1.4,.6,1)}
+.b-arte-m.fase2 svg{filter:hue-rotate(40deg) saturate(1.3)}
+.b-arte-m.fase3 svg{filter:hue-rotate(-60deg) saturate(1.6) drop-shadow(0 0 10px #FF4B5C)}
+.b-banner{position:absolute;left:50%;top:46%;z-index:6;padding:10px 20px;border-radius:999px;background:#1E1240E6;color:#FFC531;font-size:24px;font-weight:900;white-space:nowrap;opacity:0;pointer-events:none;transform:translate(-50%,-50%)}
+.b-banner.mostra{animation:banner 1.2s ease-out}
+.b-efeitos{position:absolute;left:6%;bottom:calc(7% + 140px);z-index:3;font-size:18px;font-weight:900;color:#fff;text-shadow:0 2px 0 #1E1240}
+.b-poderes{display:grid;gap:8px}
+.b-poder{display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:10px;padding:10px 14px;border-radius:16px;background:#fff;color:var(--tx);text-align:left;animation:surge .25s ease-out}
+.b-poder span{grid-row:span 2;font-size:28px}
+.b-poder b{font-size:17px}
+.b-poder small{font-size:13px;font-weight:800;color:var(--tx2)}
+.b-poder:disabled{opacity:.4}
+.b-resp.fora{opacity:.2;text-decoration:line-through}
+.melhoria{position:absolute;inset:0;z-index:36;display:grid;place-items:center;padding:16px;background:#140F2ECC;animation:fade .2s}
+.mel-caixa{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.mel-caixa .titulo{color:#fff}
+.mel-opcoes{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mel{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;border-radius:22px;background:#fff;color:var(--tx);box-shadow:0 6px 0 var(--acc-esc);animation:surge .35s cubic-bezier(.3,1.6,.6,1) backwards}
+.mel:nth-child(2){animation-delay:.08s}
+.mel:nth-child(3){animation-delay:.16s}
+.mel span{font-size:40px}
+.mel b{font-size:16px}
+
+/* ---------- aldeia ---------- */
+.faixa .aldeia{background:#FFF3C4;color:#9A6B00}
+
+/* ---------- animações ---------- */
+@keyframes entra{from{opacity:0;transform:translateY(12px)}}
+@keyframes flutua{50%{transform:translateY(-8px)}}
+@keyframes pulso{from{transform:scale(1);opacity:.6}to{transform:scale(1.7);opacity:0}}
+@keyframes pula{50%{transform:translateY(-8px)}}
+@keyframes pop{from{transform:scale(.6)}}
+@keyframes surge{from{transform:scale(.3);opacity:0}}
+@keyframes boia{50%{transform:translateY(-7px)}}
+@keyframes bate{40%{transform:translateY(-16px)}}
+@keyframes treme{20%,60%{transform:translateX(-6px) rotate(-3deg)}40%,80%{transform:translateX(6px) rotate(3deg)}}
+@keyframes galopa{50%{transform:translateY(-5px)}}
+@keyframes perna{from{transform:rotate(-30deg)}to{transform:rotate(30deg)}}
+@keyframes rolaLonge{to{background-position-x:-480px}}
+@keyframes rolaPerto{to{background-position-x:-320px}}
+@keyframes rolaChao{to{background-position-x:-64px}}
+@keyframes moeda{0%{transform:translate(0,0) scale(.4)}30%{transform:translate(0,-34px) scale(1.15)}100%{transform:translate(var(--hx),var(--hy)) scale(.5);opacity:.3}}
+@keyframes balao{0%{opacity:0;transform:translate(-50%,-80%) scale(.5)}15%{opacity:1;transform:translate(-50%,-100%) scale(1.1)}25%,80%{opacity:1;transform:translate(-50%,-100%) scale(1)}100%{opacity:0;transform:translate(-50%,-130%)}}
+@keyframes aviso{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}20%,80%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.2)}}
+@keyframes cai{to{transform:translate(var(--dx),105vh) rotate(var(--r))}}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,-20px)}10%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-20px)}}
+@keyframes vira{from{transform:rotateY(90deg) scale(.7)}}
+@keyframes fade{from{opacity:0}}
+@keyframes relogio{to{transform:scaleX(0)}}
+@keyframes chega{from{transform:translateX(180%)}}
+@keyframes pisa{40%{transform:translateY(-10px)}}
+@keyframes derrota{to{transform:translateY(30px) rotate(25deg) scale(.4);opacity:0}}
+@keyframes holo{50%{background-position:100% 100%}}
+@keyframes balanca{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+@keyframes escurece{0%{opacity:0}40%{opacity:.7}100%{opacity:0}}
+@keyframes desce{from{transform:translateY(-120px) scale(.6);opacity:0}}
+@keyframes banner{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}25%,75%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.1)}}
+@keyframes ataca{50%{transform:translate(70px,-50px) scale(1.06)}}
+@keyframes investe{50%{transform:translate(-60px,50px) scale(1.1)}}
+@keyframes desmaia{to{transform:translateY(20px) scale(.5);opacity:0}}
+@keyframes dano{0%{opacity:0;transform:translateY(10px) scale(.6)}20%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0;transform:translateY(-16px)}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+<link rel="stylesheet" href="tema.css">
+</head>
+<body>
+
+<!-- 1. Início -->
+<section class="tela" id="t-inicio">
+  <div class="centro">
+    <div class="logo-heroi" id="logo-heroi"></div>
+    <h1 class="logo">Mohamed</h1>
+    <p class="sub">Matemática no modo jogo 🎮</p>
+    <input class="campo" id="in-nome" placeholder="😀 Seu nome" maxlength="20" autocomplete="off">
+    <input class="campo" id="in-turma" placeholder="🏫 Turma" maxlength="12" autocomplete="off">
+    <input class="campo" id="in-apelido" placeholder="🦸 Apelido do ranking" maxlength="12" autocomplete="off">
+  </div>
+  <div class="rodape"><button class="btn" id="bt-comecar" disabled>Começar ▶</button></div>
+</section>
+
+<!-- 2. Criação do personagem -->
+<section class="tela" id="t-personagem">
+  <h2 class="titulo" style="text-align:center">Crie seu herói ✨</h2>
+  <div class="centro">
+    <div class="preview" id="pv-heroi"></div>
+    <div class="grupos">
+      <div class="grupo"><span>🎨</span><div class="opcoes" id="op-cor"></div></div>
+      <div class="grupo"><span>🙂</span><div class="opcoes" id="op-rosto"></div></div>
+      <div class="grupo"><span>🎩</span><div class="opcoes" id="op-acessorio"></div></div>
+    </div>
+  </div>
+  <div class="rodape"><button class="btn" id="bt-pronto">Pronto ✔</button></div>
+</section>
+
+<!-- 3. Mapa de fases -->
+<section class="tela" id="t-mapa">
+  <div class="topo">
+    <button class="btn-ico" id="bt-perfil" data-ir="t-personagem" aria-label="Personagem"></button>
+    <span class="espaco"></span>
+    <button class="chip tempo" data-ir="t-relatorio" aria-label="Relatório">⏱ 00:00</button>
+    <span class="chip" id="chip-xp">⚡ 0</span>
+    <button class="btn-ico" data-ir="t-album" aria-label="Álbum">🃏</button>
+    <button class="btn-ico" id="bt-ajustes" aria-label="Ajustes">⚙️</button>
+  </div>
+  <div class="mapa-rolagem" id="mapa"></div>
+</section>
+
+<!-- 6. Álbum de cartas -->
+<section class="tela" id="t-album">
+  <div class="topo">
+    <button class="btn-ico" data-ir="t-mapa" aria-label="Mapa">←</button>
+    <span class="espaco"></span>
+    <span class="chip" id="album-xp">⚡ 0</span>
+    <span class="chip" id="album-cont">🃏 0/0</span>
+  </div>
+  <div class="secao">🏅 Medalhas</div>
+  <div class="medalhas" id="album-medalhas"></div>
+  <div id="album-cartas"></div>
+</section>
+
+<!-- Vila (vila.js): construir em grade e passear -->
+<section class="tela" id="t-aldeia">
+  <div class="vila-topo">
+    <button class="btn-ico" data-ir="t-mapa" aria-label="Mapa">←</button>
+    <div class="vila-recursos" id="vila-recursos"></div>
+    <span class="espaco"></span>
+    <button class="btn-ico" id="vila-loja" aria-label="Loja">🛒</button>
+    <button class="btn-ico" id="vila-modo" aria-label="Construir">🔨</button>
+  </div>
+  <div class="vila-palco"><canvas id="vila-tela"></canvas><div class="vila-menu" id="vila-menu" hidden></div></div>
+  <div class="vila-barra" id="vila-barra" hidden><div class="vila-cats" id="vila-cats"></div><div class="vila-itens" id="vila-itens"></div></div>
+  <div class="vila-controle" id="vila-controle"><div class="joy" id="vila-joy"><i></i></div></div>
+</section>
+
+<!-- Masmorra do dia: só a sala, o personagem, os corações, o mini mapa e o joystick -->
+<section class="tela" id="t-masmorra">
+  <div class="mas-topo">
+    <button class="btn-ico" data-ir="t-mapa" aria-label="Sair">✕</button>
+    <div id="mas-vidas"></div>
+    <span class="espaco"></span>
+    <button class="btn-ico" id="mas-reinicia" hidden aria-label="Reiniciar puzzle">↺</button>
+    <canvas id="mas-mini" aria-label="Mini mapa"></canvas>
+  </div>
+  <div class="mas-palco"><canvas id="mas-tela"></canvas></div>
+  <div class="mas-controle"><div class="joy" id="joy"><i></i></div></div>
+
+  <!-- batalha por turnos -->
+  <div class="batalha" id="batalha" hidden>
+    <div class="arena" id="arena">
+      <div class="b-info b-info-m"><b id="b-nome"></b><div class="b-barra"><i id="b-vida"></i></div><small id="b-pv"></small><div class="b-carga" id="b-carga" hidden><i></i></div></div>
+      <i class="b-chao b-chao-m"></i><div class="b-arte-m" id="b-arte"></div>
+      <i class="b-chao b-chao-h"></i><div class="b-arte-h" id="b-heroi"></div>
+      <div class="b-info b-info-h" id="b-vidas"></div>
+      <div class="b-dano" id="b-dano"></div>
+      <div class="b-efeitos" id="b-efeitos"></div>
+      <div class="b-banner" id="b-banner"></div>
+    </div>
+    <div class="b-texto"><div class="b-relogio" id="b-relogio"><i></i></div><p id="b-fala"></p><div class="b-dica" id="b-dica"></div><button class="b-segue" id="b-segue" hidden aria-label="Continuar">▶</button></div>
+    <div class="b-poderes" id="b-poderes" hidden></div>
+    <div class="b-respostas" id="b-respostas"></div>
+    <div class="b-acoes"><button class="b-acao" id="b-poder">⚡ Poder</button><button class="b-acao" id="b-dicabt">💡 Dica</button></div>
+  </div>
+
+  <!-- baú ou porta trancada: desafio de arrastar, ligar, reta… -->
+  <div class="desafio" id="desafio" hidden>
+    <div class="des-caixa">
+      <div class="topo"><span class="des-icone" id="des-icone">🎁</span><span class="espaco"></span><button class="btn-ico" id="des-volta" aria-label="Fechar">✕</button></div>
+      <p class="des-pergunta" id="des-pergunta"></p>
+      <div class="des-palco" id="des-palco"></div>
+    </div>
+  </div>
+
+  <!-- entre as salas: escolha 1 de 3 melhorias -->
+  <div class="melhoria" id="melhoria" hidden>
+    <div class="mel-caixa"><h2 class="titulo">✨ Escolha 1</h2><div class="mel-opcoes" id="mel-opcoes"></div></div>
+  </div>
+</section>
+
+<!-- 7. Relatório da sessão -->
+<section class="tela" id="t-relatorio">
+  <div class="topo">
+    <button class="btn-ico" data-ir="t-mapa" aria-label="Mapa">←</button>
+    <span class="espaco"></span>
+    <span class="chip" id="rel-fila" hidden></span>
+  </div>
+  <div class="centro">
+    <div class="tempo-grande" id="rel-tempo">00:00</div>
+    <p class="sub" id="rel-estado"></p>
+    <div class="barra"><i id="rel-barra"></i></div>
+    <p class="sub" id="rel-licao"></p>
+    <div class="stats" id="rel-stats"></div>
+    <div class="erradas" id="rel-erradas"></div>
+  </div>
+  <div class="rodape"><button class="btn duas" id="bt-enviar" disabled></button></div>
+</section>
+
+<script src="conteudo.js"></script>
+<script src="biomas.js"></script>
+<script src="monstros.js"></script>
+<script src="perigos.js"></script>
+<script src="puzzles.js"></script>
+<script src="mapas.js"></script>
+<script src="mapas1.js"></script>
+<script src="mapas2.js"></script>
+<script src="mapas3.js"></script>
+<script src="sprites.js"></script>
+<script src="personagens.js"></script>
+<script src="monstros_campo.js"></script>
+<script src="monstros_floresta.js"></script>
+<script src="monstros_praia.js"></script>
+<script src="monstros_vulcao.js"></script>
+<script src="monstros_castelo.js"></script>
+<script src="minichefes.js"></script>
+<script src="chefoes.js"></script>
+<script src="chefoes2.js"></script>
+<script src="sprites_jogo.js"></script>
+<script src="jogo.js"></script>
+<script src="relatorio.js"></script>
+<script src="audio.js"></script>
+<script src="vila.js"></script>
+<script src="app.js"></script>
+<script>
+  // PWA: guarda os arquivos para funcionar sem internet
+  if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('service-worker.js').catch(() => {})); // aberto direto do arquivo (file://) não tem service worker: o jogo funciona igual, só não instala offline
+</script>
+</body>
+</html>

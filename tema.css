@@ -1,0 +1,255 @@
+/* Mohamed — tema.css: visual escuro (noite azul + roxo profundo) com UM destaque neon ciano.
+   Só aparência: entra depois do <style> do index.html e sobrescreve cores, brilhos e efeitos.
+   Animações de toque até 0,5 s; névoa, partículas e pulsos são lentos e somem com "reduzir movimento". */
+:root{
+  --neon:#22E8FF;--neon-esc:#0A8FB0;--neon-tx:#03141A;
+  --fundo:#06070F;--noite:#0A1028;--roxo:#1C0F3A;
+  --painel:#0E1330;--painel2:#151B40;--borda:#262E5C;
+  --acc:var(--neon);--acc-esc:var(--neon-esc);--acc-cl:#22E8FF1A;
+  --ok:var(--neon);--ok-esc:var(--neon-esc);--ok-cl:#22E8FF1F;
+  --erro:#FF3B5C;--erro-esc:#B3122E;--erro-cl:#FF3B5C1F;
+  --tx:#E8EDFF;--tx2:#8D97C7;--cinza:#1A2045;--cinza-esc:#3A4377;
+  color-scheme:dark;
+}
+
+/* ---------- fundo, vinheta, névoa e partículas (só CSS) ---------- */
+html{background:var(--fundo)}
+body{background:radial-gradient(120% 55% at 50% -12%,#2A1660 0%,transparent 62%),linear-gradient(var(--noite),var(--fundo) 70%);color:var(--tx)}
+html::before,body::before,body::after{content:"";position:fixed;pointer-events:none}
+html::before{inset:0;z-index:39;background:radial-gradient(ellipse 115% 88% at 50% 45%,transparent 58%,#000000A6 100%)}
+body::before{inset:-20% -40%;z-index:37;opacity:.9;will-change:transform;animation:nevoa 28s ease-in-out infinite alternate;
+  background:radial-gradient(38% 26% at 28% 72%,#7C5CFF17,transparent 70%),radial-gradient(34% 22% at 72% 38%,#22E8FF0F,transparent 70%),radial-gradient(50% 24% at 50% 100%,#8A7CFF1C,transparent 70%)}
+body::after{left:0;top:0;width:100%;height:200%;z-index:38;opacity:.6;will-change:transform;animation:brasas 48s linear infinite;background-size:100% 50%;
+  background-image:radial-gradient(circle 2.5px at 8% 82%,#FFC98A,transparent),radial-gradient(circle 2px at 22% 34%,#9FF7FF,transparent),radial-gradient(circle 1.5px at 37% 64%,#FFB86B,transparent),radial-gradient(circle 2px at 51% 18%,#B8A6FF,transparent),radial-gradient(circle 2.5px at 63% 91%,#9FF7FF,transparent),radial-gradient(circle 1.5px at 76% 47%,#FFC98A,transparent),radial-gradient(circle 2px at 89% 72%,#FFB86B,transparent),radial-gradient(circle 1.5px at 94% 12%,#9FF7FF,transparent),radial-gradient(circle 2px at 14% 6%,#B8A6FF,transparent),radial-gradient(circle 1.5px at 45% 42%,#9FF7FF,transparent)}
+
+/* ---------- textos, chips e campos ---------- */
+.logo{color:var(--neon);text-shadow:0 0 6px #22E8FFAA,0 0 26px #22E8FF66}
+.logo-heroi,.preview{filter:drop-shadow(0 0 22px #22E8FF33)}
+.titulo{text-shadow:0 0 18px #7C5CFF55}
+.chip{background:#22E8FF14;color:var(--neon);box-shadow:inset 0 0 0 1.5px #22E8FF40}
+.campo{background:var(--painel);border-color:var(--borda);color:var(--tx);box-shadow:inset 0 2px 10px #0008}
+.campo:focus{border-color:var(--neon);box-shadow:0 0 0 3px #22E8FF26,0 0 18px #22E8FF40}
+.campo::placeholder{color:#59639A}
+
+/* ---------- botões: contorno luminoso e toque curto ---------- */
+.btn,.btn.ok{background:linear-gradient(180deg,#6FF4FF,var(--neon) 55%,#14C4E0);color:var(--neon-tx);box-shadow:0 0 0 1.5px #A8F8FF,0 0 22px #22E8FF66,0 6px 0 var(--neon-esc);transition:transform .08s,box-shadow .12s,filter .12s}
+.btn:active,.btn.ok:active{transform:translateY(4px) scale(.98);box-shadow:0 0 0 2px #CFFCFF,0 0 34px #22E8FFAA,0 2px 0 var(--neon-esc);filter:brightness(1.12)}
+.btn:disabled{background:var(--cinza);color:#4A5488;box-shadow:inset 0 0 0 1.5px var(--borda),0 6px 0 #0B0E22;filter:none;transform:none}
+.btn.erro{background:linear-gradient(180deg,#FF6F86,var(--erro));color:#fff;box-shadow:0 0 0 1.5px #FFB3BF,0 0 22px #FF3B5C66,0 6px 0 var(--erro-esc)}
+.btn.claro{background:var(--painel);color:var(--neon);box-shadow:inset 0 0 0 1.5px #22E8FF66,0 0 16px #22E8FF22,0 6px 0 #070A1A}
+.btn-ico{background:#22E8FF12;color:var(--neon);box-shadow:inset 0 0 0 1.5px #22E8FF40,0 0 12px #22E8FF1F;transition:transform .1s,box-shadow .12s}
+.btn-ico:active{transform:scale(.9);box-shadow:inset 0 0 0 2px var(--neon),0 0 20px #22E8FF66}
+@media (hover:hover){.btn:hover,.btn-ico:hover,.b-resp:hover,.mel:hover,.vila-item:hover{filter:brightness(1.12)}}
+
+/* ---------- personagem ---------- */
+.op{background:var(--painel);box-shadow:inset 0 0 0 1.5px var(--borda)}
+.op.sel{border-color:var(--neon);background:#22E8FF14;box-shadow:0 0 16px #22E8FF55}
+
+/* ---------- mapa: noite estrelada, caminho iluminado, nós que brilham ---------- */
+#t-mapa{position:relative;background:radial-gradient(circle 22px at 82% 19%,#FFF4D6 0 70%,transparent 76%),radial-gradient(circle 110px at 82% 19%,#FFE9B02E,transparent 70%),radial-gradient(130% 70% at 50% -10%,#2B1766 0%,#120C33 38%,#070A1C 72%,var(--fundo))}
+#t-mapa::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.8;animation:cintila 4s ease-in-out infinite alternate;background-size:230px 270px;
+  background-image:radial-gradient(circle 1px at 20px 30px,#fff,transparent),radial-gradient(circle 1.5px at 140px 60px,#DDE6FF,transparent),radial-gradient(circle 1px at 90px 150px,#fff,transparent),radial-gradient(circle 1px at 200px 210px,#BFD0FF,transparent),radial-gradient(circle 1.5px at 40px 240px,#fff,transparent),radial-gradient(circle 1px at 170px 120px,#fff,transparent)}
+#t-mapa>*{position:relative;z-index:1}
+#t-mapa .topo{background:#06070FB3;border-bottom:1px solid #22E8FF26;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.mapa-rolagem>svg{background-size:170px 210px;background-image:radial-gradient(circle 1px at 30px 40px,#ffffffcc,transparent),radial-gradient(circle 1.5px at 120px 90px,#ffffffaa,transparent),radial-gradient(circle 1px at 70px 170px,#ffffff99,transparent),radial-gradient(circle 1px at 150px 190px,#ffffffbb,transparent)}
+#mapa g[stroke-width="20"]{filter:drop-shadow(0 0 7px #FFFFFF2E)}
+#mapa g[stroke-dasharray]{stroke:#FFE6A0;opacity:.85;filter:drop-shadow(0 0 3px #FFC531)}
+.no:not(.bloq){filter:drop-shadow(0 0 10px #22E8FF73)}
+.no>text[y="60"]{fill:#DCE3FF}
+.no.bloq circle:not([fill="none"]){fill:#141936}
+.no.bloq circle[fill="none"]{stroke:#2A3263;stroke-opacity:1}
+.no.bloq g[fill="#A29EB6"]{fill:#3C4578}
+.no.bloq path[stroke="#A29EB6"]{stroke:#3C4578}
+.no.bloq>text[y="60"]{fill:#3F4877}
+.faixa .eu{background:var(--neon);color:var(--neon-tx);box-shadow:0 0 14px #22E8FF88}
+.faixa .fogo{background:#FF6A1A1A;color:#FF9A57;box-shadow:inset 0 0 0 1.5px #FF6A1A55}
+.faixa .aldeia{background:#FFC5311A;color:#FFD66B;box-shadow:inset 0 0 0 1.5px #FFC53155}
+
+/* ---------- sobreposições, avisos e caixas ---------- */
+.sobre{background:#030409E0;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.caixa,.des-caixa{background:linear-gradient(180deg,var(--painel2),var(--painel));color:var(--tx);box-shadow:0 0 0 1.5px #22E8FF55,0 0 40px #22E8FF26,0 20px 50px #000C}
+.toast{background:#0B1030F2;color:var(--tx);box-shadow:0 0 0 1.5px #22E8FF66,0 0 22px #22E8FF40}
+.frase{color:var(--neon);text-shadow:0 0 14px #22E8FF66}
+.bau.aberto{filter:drop-shadow(0 0 26px var(--ouro))}
+
+/* ---------- álbum e relatório ---------- */
+.stat,.frases p{background:var(--painel);box-shadow:inset 0 0 0 1.5px var(--borda)}
+.medalha .m{box-shadow:0 5px 0 var(--ouro-esc),0 0 18px #FFC53166}
+.medalha.falta .m{background:var(--painel);box-shadow:inset 0 0 0 1.5px var(--borda);filter:grayscale(1);opacity:.45}
+.carta{box-shadow:0 0 0 1.5px #FFFFFF26,0 10px 24px #000A}
+.carta.falta{background:#0F1432;color:#36407A;box-shadow:inset 0 0 0 1.5px var(--borda)}
+.carta .selo{color:#7B2FF7}
+.tempo-grande{color:var(--neon);text-shadow:0 0 24px #22E8FF80}
+.barra,.b-barra{overflow:visible;background:#12173A;box-shadow:inset 0 0 0 1px var(--borda)}
+.barra i{background:linear-gradient(90deg,#7C5CFF,var(--neon));box-shadow:0 0 14px #22E8FFAA}
+.erradas .errada{background:var(--erro-cl);color:#FF8A9D;box-shadow:inset 0 0 0 1.5px #FF3B5C44}
+
+/* ---------- desafios de baú e porta ---------- */
+.desafio,.melhoria{background:#03040AE0}
+.painel{background:#0E1330F2;color:var(--tx);box-shadow:inset 0 0 0 1.5px var(--borda)}
+.painel.solto{background:#0A0E26}
+.ficha.sel,.ficha.ok,.expr .op.feita,.expr .op.feita::after{color:var(--neon-tx)}
+.ficha.sel{box-shadow:0 0 14px #22E8FFAA}
+.cz{background:#22E8FF0D}
+.cn{border-color:#B98CFF;background:#B98CFF14}
+.cn>.rot{color:#C9A9FF}
+.vaga{border-color:var(--cinza-esc)}
+.vaga.cheia{color:var(--neon);box-shadow:0 0 12px #22E8FF40}
+/* desenhos das dicas e da reta: traços escuros viram claros no fundo escuro */
+.painel svg [fill="#1E1240"],.visual svg [fill="#1E1240"]{fill:var(--tx)}
+.painel svg [stroke="#1E1240"],.visual svg [stroke="#1E1240"]{stroke:#C9D3FF}
+.visual svg [fill="#7A7396"]{fill:#9AA5D8}
+.visual svg [fill="#7B2FF7"]{fill:var(--neon)}
+.visual svg [stroke="#7B2FF7"]{stroke:var(--neon)}
+
+/* ---------- masmorra ---------- */
+#t-masmorra{background:radial-gradient(120% 60% at 50% 0%,#1A1240 0%,transparent 60%),var(--fundo)}
+#mas-tela{border-radius:14px;box-shadow:0 0 0 1.5px #22E8FF40,0 0 28px #22E8FF1F,0 14px 34px #000C}
+#mas-vidas{transform-origin:left center;animation:coracao 1.6s ease-in-out infinite;filter:drop-shadow(0 0 5px #FF3B5C88)}
+#mas-mini{border-radius:8px;background:#05060CB3;box-shadow:inset 0 0 0 1px #22E8FF33}
+.joy{background:radial-gradient(circle,#22E8FF14,var(--painel) 70%);box-shadow:inset 0 0 0 1.5px #22E8FF40,0 0 24px #22E8FF1A}
+.joy i{background:radial-gradient(circle at 35% 30%,#B8FBFF,var(--neon) 60%,#0FB5D0);box-shadow:0 5px 0 var(--neon-esc),0 0 22px #22E8FFAA}
+
+/* ---------- batalha ---------- */
+.batalha{background:radial-gradient(100% 50% at 50% 0%,#170F35,transparent 70%),var(--fundo)}
+.arena{background:radial-gradient(70% 55% at 74% 24%,var(--a1) 0%,transparent 72%),linear-gradient(#0D1130,#05060E);box-shadow:inset 0 0 0 1.5px #FFFFFF14,inset 0 -40px 60px #0008}
+.b-info{background:#0B1030E6;color:var(--tx);box-shadow:inset 0 0 0 1.5px var(--borda),0 6px 18px #0009}
+.b-info-m{box-shadow:inset 0 0 0 1.5px #FF3B5C55,0 0 18px #FF2A4A22}
+.b-info-m small{color:var(--tx2)}
+.b-barra i{background-image:linear-gradient(180deg,#FFFFFF66,#FFFFFF00 55%,#0000002E)!important;filter:saturate(1.3) drop-shadow(0 0 5px #FFFFFF59)}
+.b-info-h span{display:inline-block;animation:coracao 1.6s ease-in-out infinite;filter:drop-shadow(0 0 4px #FF3B5C88)}
+.b-chao-m{background:radial-gradient(closest-side,#FF2A4A40,transparent)}
+.b-chao-h{background:radial-gradient(closest-side,#22E8FF2E,transparent)}
+.b-arte-h svg{filter:drop-shadow(0 0 10px #22E8FF40)}
+/* monstro com brilho de ameaça (as fases do chefão mantêm a cor brava) */
+.b-arte-m svg{animation:ameaca 2.4s ease-in-out infinite}
+.b-arte-m.fase2 svg{animation-name:ameaca2}
+.b-arte-m.fase3 svg{animation:ameaca3 1.2s ease-in-out infinite}
+/* acerto: clarão neon no monstro · erro: tremor e clarão vermelho na arena */
+.b-arte-m.dor{filter:none;animation:treme .4s,golpeado .4s ease-out}
+.b-arte-m.dor::after{content:"";position:absolute;inset:-30%;border-radius:50%;pointer-events:none;background:radial-gradient(closest-side,#CFFCFFEE,#22E8FF99 35%,transparent);animation:flashAcerto .35s ease-out forwards}
+.arena.balanca::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(circle at 50% 55%,#FF2A4A33,#FF2A4A99);animation:flashErro .35s ease-out forwards}
+.b-dano{font-size:24px;text-shadow:-2px -2px 0 #05060E,2px -2px 0 #05060E,-2px 2px 0 #05060E,2px 2px 0 #05060E,0 3px 0 #05060E,0 0 16px currentColor}
+.b-dano.pop{animation:danoSobe .5s cubic-bezier(.2,.9,.3,1)}
+.b-texto{background:linear-gradient(180deg,#10163A,#0A0E26);color:var(--tx);box-shadow:inset 0 0 0 1.5px #22E8FF66,0 0 22px #22E8FF26}
+.b-dica{color:#A9B4E6}
+.b-segue{color:var(--neon-tx);box-shadow:0 0 16px #22E8FFAA}
+.b-resp{background:linear-gradient(180deg,#151B44,#0D1233);color:var(--tx);box-shadow:inset 0 0 0 1.5px #22E8FF4D,0 4px 0 #05060E;transition:transform .08s,box-shadow .12s}
+.b-resp:active{transform:translateY(3px) scale(.98);box-shadow:inset 0 0 0 2px var(--neon),0 0 18px #22E8FF66}
+.b-resp.certa{background:var(--neon);color:var(--neon-tx);box-shadow:0 0 0 2px #CFFCFF,0 0 26px #22E8FFCC;animation:brilhoCerto .4s ease-out}
+.b-resp.errada{background:var(--erro);color:#fff;box-shadow:0 0 0 2px #FFB3BF,0 0 24px #FF3B5CAA}
+.b-resp:disabled:not(.certa):not(.errada){opacity:.35}
+.b-acao{background:var(--painel);color:var(--tx);box-shadow:inset 0 0 0 1.5px #22E8FF40;transition:box-shadow .12s}
+.b-acao:active{box-shadow:inset 0 0 0 2px var(--neon),0 0 16px #22E8FF66}
+.b-poder{background:var(--painel2);color:var(--tx);box-shadow:inset 0 0 0 1.5px #22E8FF4D,0 0 16px #22E8FF1F}
+.b-poder small{color:var(--tx2)}
+.b-banner{background:#120616EB;color:#FFD15C;box-shadow:0 0 0 1.5px #FF3B5C88,0 0 30px #FF2A4A66;text-shadow:0 0 12px #FF7A3D}
+
+/* ---------- chefão: tom avermelhado e pulso lento de alerta ---------- */
+.arena.chefe{background:radial-gradient(75% 60% at 74% 22%,#8A0F2E 0%,transparent 70%),linear-gradient(#2A0612,#08020A);box-shadow:inset 0 0 0 1.5px #FF3B5C66,0 0 30px #FF2A4A33}
+.arena.chefe .b-chao-m{background:radial-gradient(closest-side,#FF2A4A73,transparent)}
+.batalha:has(.arena.chefe){background:radial-gradient(100% 55% at 50% 0%,#3A0715,transparent 70%),#07020A}
+.batalha:has(.arena.chefe)::before{content:"";position:absolute;inset:0;z-index:8;pointer-events:none;background:radial-gradient(ellipse 100% 80% at 50% 45%,transparent 55%,#FF1E3C59 100%);animation:alerta 2.6s ease-in-out infinite}
+.batalha:has(.arena.chefe) .b-texto{box-shadow:inset 0 0 0 1.5px #FF3B5C88,0 0 22px #FF2A4A33}
+
+/* ---------- melhorias ---------- */
+.mel{background:linear-gradient(180deg,var(--painel2),var(--painel));color:var(--tx);box-shadow:inset 0 0 0 1.5px #22E8FF55,0 0 22px #22E8FF26,0 6px 0 #05060E;transition:transform .08s,box-shadow .12s}
+.mel:active{transform:scale(.96);box-shadow:inset 0 0 0 2px var(--neon),0 0 30px #22E8FF77}
+
+/* ---------- botão de som (criado pelo audio.js) ---------- */
+.som-bt{position:fixed;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:45;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:#0B1030CC;color:var(--neon);box-shadow:inset 0 0 0 1.5px #22E8FF4D,0 0 14px #22E8FF26;opacity:.75;transition:transform .1s,opacity .2s}
+.som-bt svg{width:20px;height:20px}
+.som-bt:active{transform:scale(.9);opacity:1}
+.som-bt.mudo{color:var(--tx2);box-shadow:inset 0 0 0 1.5px var(--borda)}
+body:has(.tela.ativa .rodape) .som-bt{bottom:calc(100px + env(safe-area-inset-bottom))}
+
+/* ---------- animações do tema ---------- */
+@keyframes nevoa{from{transform:translate3d(-6%,0,0)}to{transform:translate3d(6%,-3%,0)}}
+@keyframes brasas{to{transform:translate3d(0,-50%,0)}}
+@keyframes cintila{from{opacity:.35}to{opacity:.9}}
+@keyframes coracao{0%,60%,100%{transform:scale(1)}15%{transform:scale(1.1)}30%{transform:scale(1)}45%{transform:scale(1.05)}}
+@keyframes ameaca{0%,100%{filter:drop-shadow(0 0 6px #FF2A4A59)}50%{filter:drop-shadow(0 0 16px #FF2A4AB3)}}
+@keyframes ameaca2{0%,100%{filter:hue-rotate(40deg) saturate(1.3) drop-shadow(0 0 8px #FF2A4A66)}50%{filter:hue-rotate(40deg) saturate(1.3) drop-shadow(0 0 18px #FF2A4ABF)}}
+@keyframes ameaca3{0%,100%{filter:hue-rotate(-60deg) saturate(1.6) drop-shadow(0 0 10px #FF3B5C)}50%{filter:hue-rotate(-60deg) saturate(1.6) drop-shadow(0 0 24px #FF3B5C)}}
+@keyframes golpeado{from{filter:brightness(2.4) drop-shadow(0 0 18px #22E8FF)}}
+@keyframes flashAcerto{0%{opacity:0;transform:scale(.5)}30%{opacity:1}100%{opacity:0;transform:scale(1.35)}}
+@keyframes flashErro{0%{opacity:0}20%{opacity:1}100%{opacity:0}}
+@keyframes danoSobe{0%{opacity:0;transform:translateY(14px) scale(.7)}25%{opacity:1;transform:translateY(0) scale(1.12)}70%{opacity:1;transform:translateY(-14px) scale(1)}100%{opacity:0;transform:translateY(-30px)}}
+@keyframes brilhoCerto{from{box-shadow:0 0 0 2px #fff,0 0 50px #22E8FF}}
+@keyframes alerta{0%,100%{opacity:.35}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){
+  body::before,#t-mapa::before,.batalha:has(.arena.chefe)::before{animation:none}
+  .b-arte-m.dor::after,.arena.balanca::before{animation-duration:.01ms}
+  body::after{display:none}
+}
+
+/* ---------- masmorra: correr, reiniciar puzzle e mercador ---------- */
+.joy.corre i{box-shadow:0 5px 0 var(--neon-esc),0 0 30px #22E8FFEE,0 0 0 4px #22E8FF55}
+#mas-reinicia{font-size:22px;color:#FFE08A;box-shadow:inset 0 0 0 1.5px #FFE08A66,0 0 14px #FFE08A33}
+.melhoria.loja .mel-opcoes{grid-template-columns:repeat(2,1fr)}
+.mel small{font-size:13px;font-weight:900;color:var(--ouro)}
+.mel:disabled{opacity:.4}
+.mel.sair{grid-column:1/-1;flex-direction:row;justify-content:center;padding:10px}
+.mel.sair span{font-size:24px}
+
+/* ---------- pressão de tempo gentil: barra fina do bônus rápido e barra de carga (sem alarme) ---------- */
+.b-relogio{position:absolute;left:16px;right:16px;top:6px;height:3px;border-radius:3px;background:#FFFFFF10;opacity:0;transition:opacity .25s;pointer-events:none}
+.b-relogio.vivo{opacity:1}
+.b-relogio i{display:block;width:100%;height:100%;border-radius:inherit;background:var(--neon);opacity:.75}
+.b-carga{height:6px;margin-top:6px;border-radius:6px;background:#2A1430;box-shadow:inset 0 0 0 1px #FF9A3D33;overflow:hidden}
+.b-carga i{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#FFB86B,#FF6A3D);transition:width .1s linear}
+.b-carga.quase i{background:linear-gradient(90deg,#FF9A3D,#FF3B5C);box-shadow:0 0 10px #FF6A3D}
+.b-arte-m.blindado::before{content:"";position:absolute;inset:-10%;border-radius:50%;pointer-events:none;box-shadow:0 0 0 3px #8FD8FF99,inset 0 0 22px #8FD8FF55}
+.b-arte-m.mutante{filter:hue-rotate(110deg)}
+.b-arte-m.furia{filter:saturate(1.5) drop-shadow(0 0 10px #FF2A4A)}
+.b-arte-m.mutante.furia{filter:hue-rotate(110deg) saturate(1.5) drop-shadow(0 0 10px #FF2A4A)}
+.b-arte-m.carrega{filter:drop-shadow(0 0 14px #FF9A3D)}
+.b-arte-m.mutante.carrega{filter:hue-rotate(110deg) drop-shadow(0 0 14px #FF9A3D)}
+.b-arte-m.muta{animation:muta .5s ease-in-out}
+@keyframes muta{30%{transform:scale(1.15,.85)}60%{transform:scale(.9,1.12)}}
+
+/* ---------- ajustes: modo calmo ---------- */
+.ajuste{width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:20px;background:var(--painel);box-shadow:inset 0 0 0 1.5px var(--borda);text-align:left;transition:box-shadow .15s}
+.ajuste span{font-size:30px}
+.ajuste b{flex:1;font-size:20px}
+.ajuste i{font-style:normal;font-size:14px;font-weight:900;padding:6px 12px;border-radius:999px;background:var(--cinza);color:var(--tx2)}
+.ajuste.ligado{box-shadow:inset 0 0 0 2px var(--neon),0 0 18px #22E8FF33}
+.ajuste.ligado i{background:var(--neon);color:var(--neon-tx)}
+
+/* ---------- vila: só a grade, o item escolhido e a barra ---------- */
+#t-aldeia{position:relative;height:100dvh;padding:10px 12px calc(12px + env(safe-area-inset-bottom));gap:10px}
+.vila-topo{display:flex;align-items:center;gap:8px}
+.vila-topo .btn-ico{width:44px;height:44px;font-size:20px}
+.vila-recursos{display:flex;flex-wrap:wrap;gap:4px 8px;font-size:15px;font-weight:900;line-height:1.2}
+.vila-recursos span{white-space:nowrap}
+.vila-recursos .apagado{opacity:.4}
+.vila-palco{position:relative;flex:1;min-height:0;border-radius:16px;overflow:hidden;box-shadow:0 0 0 1.5px #22E8FF33,0 12px 30px #0009}
+#vila-tela{display:block;touch-action:none}
+.vila-menu{position:absolute;z-index:3;display:flex;gap:6px;padding:6px;border-radius:999px;background:#0B1030F0;box-shadow:0 0 0 1.5px #22E8FF66,0 8px 20px #000A;transform:translate(-50%,-100%);animation:surge .2s ease-out}
+.vila-menu button{min-width:40px;height:40px;padding:0 8px;border-radius:999px;background:var(--painel2);font-size:20px;display:flex;align-items:center;gap:3px}
+.vila-menu button small{font-size:12px;font-weight:900;color:var(--ouro)}
+.vila-menu button:active{transform:scale(.9)}
+.vila-barra{display:flex;flex-direction:column;gap:8px}
+.vila-cats{display:flex;gap:6px}
+.vila-cat{flex:1;height:42px;border-radius:14px;background:var(--painel);box-shadow:inset 0 0 0 1.5px var(--borda);font-size:21px}
+.vila-cat.sel{box-shadow:inset 0 0 0 2px var(--neon),0 0 14px #22E8FF44;background:#22E8FF14}
+.vila-itens{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 4px;scrollbar-width:none}
+.vila-item{flex:0 0 auto;width:68px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 2px 6px;border-radius:16px;background:var(--painel);box-shadow:inset 0 0 0 1.5px var(--borda);transition:transform .1s}
+.vila-item img{width:54px;height:63px}
+.vila-item small{font-size:12px;font-weight:900;color:var(--ouro)}
+.vila-item.sel{box-shadow:inset 0 0 0 2px var(--neon),0 0 16px #22E8FF55;background:#22E8FF14}
+.vila-item.caro{opacity:.45}
+.vila-item:active{transform:scale(.94)}
+.vila-controle{height:140px;display:grid;place-items:center;touch-action:none}
+.vila-loja .mel-opcoes{grid-template-columns:repeat(3,1fr)}
+.vila-loja .mel b{font-size:14px}
+body:has(#t-aldeia.ativa .vila-barra:not([hidden])) .som-bt{bottom:calc(150px + env(safe-area-inset-bottom))}
+
+/* ---------- sprites desenhados por código (sprites.js · sprites_jogo.js) ---------- */
+.b-arte-m.sprite canvas{position:absolute;left:-25%;top:-25%;width:150%;height:150%;pointer-events:none}
+.b-arte-m.sprite.mini{height:min(194px,62%);width:auto;aspect-ratio:1;top:6%;right:5%}
+.b-arte-m.sprite.chefao{height:min(50vh,84%);width:auto;aspect-ratio:1;top:3%;right:2%}
+.retrato-sprite{display:block;flex:none;margin:0 auto}
+.mel-caixa .retrato-sprite{margin-bottom:-6px}
+.des-amigos{display:flex;align-items:flex-end;gap:2px;margin-left:6px}
+.des-amigos .retrato-sprite{margin:-12px 0 -6px}
