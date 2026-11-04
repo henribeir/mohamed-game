@@ -20,7 +20,8 @@ const Relatorio = (() => {
   const dois = n => String(n).padStart(2, '0');
   const relogio = s => (s >= 3600 ? `${Math.floor(s / 3600)}:` : '') + `${dois(Math.floor(s / 60) % 60)}:${dois(s % 60)}`;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const ativo = () => !document.hidden && Date.now() - ultimo < PAUSA_INATIVO * 1000;
+  // tela de recuperação aberta (algo deu errado): os toques para sair não contam como estudo
+  const ativo = () => !document.hidden && Date.now() - ultimo < PAUSA_INATIVO * 1000 && !(typeof Seguranca !== 'undefined' && Seguranca.emErro());
   const top3 = () => Object.entries(R.erradas).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const falta = () => Math.max(0, MINUTOS_MINIMOS * 60 - R.segundos);
   // acertos e erros por tema da masmorra: "Natural 5✔ 1✘ · Negativo 3✔ 2✘"
@@ -34,7 +35,7 @@ const Relatorio = (() => {
 
   // conta 1 segundo só com o app visível e o aluno interagindo
   function tique() {
-    if (ativo()) { R.segundos++; gravar(); }
+    if (ativo()) { R.segundos++; if (R.segundos % 5 === 0) gravar(); } // grava a cada 5 s (e ao sair do app), não a cada segundo
     pintar();
   }
 
@@ -171,8 +172,10 @@ const Relatorio = (() => {
     try {
       while (R.fila.length) {
         // text/plain + no-cors: pedido simples, sem bloqueio de CORS (o script ignora repetidos pelo id)
-        await comTempo(URL_RELATORIO, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(R.fila[0]) });
-        R.fila.shift();
+        const item = R.fila[0];
+        await comTempo(URL_RELATORIO, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(item) });
+        // tira da fila pelo id: o placar pode ter trocado a lista durante o envio (shift tirava outro item, às vezes um relatório não enviado)
+        R.fila = R.fila.filter(f => f.id !== item.id);
         gravar();
       }
     } catch (e) { /* sem rede: fica na fila */ }
@@ -184,7 +187,8 @@ const Relatorio = (() => {
   function iniciar() {
     const marcar = () => { ultimo = Date.now(); };
     ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => addEventListener(ev, marcar, { capture: true, passive: true }));
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) enviarFila(); pintar(); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) enviarFila(); else gravar(); pintar(); });
+    addEventListener('pagehide', gravar);
     addEventListener('online', enviarFila);
     id('bt-enviar').onclick = enviar;
     setInterval(tique, 1000);
