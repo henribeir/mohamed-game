@@ -255,7 +255,7 @@ const Masmorra = (() => {
   const menos = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   const calmo = () => !!(menos && menos.matches);              // "reduzir movimento": sem balanço, partículas e tremor
 
-  let M = null, cv = null, ctx = null, raf = 0, ligado = false, cache = { chave: '', imgs: {} }, shift = false;
+  let M = null, cv = null, ctx = null, raf = 0, ligado = false, cache = { chave: '', imgs: {} }, shift = false, largar = () => {};
   let vw = 0, vh = 0, zoom = 1, dpr = 1;
   const joy = { x: 0, y: 0 }, teclas = new Set(), artes = {};
   const sombra = document.createElement('canvas'), sctx = sombra.getContext('2d');
@@ -429,6 +429,8 @@ const Masmorra = (() => {
 
   function ajustar() {
     const palco = cv.parentElement, w = palco.clientWidth, h = palco.clientHeight;
+    // palco ainda sem tamanho (tela acabou de aparecer): tenta de novo no próximo quadro em vez de ficar 0 × 0
+    if ((w < 2 || h < 2) && document.getElementById('t-masmorra').classList.contains('ativa')) { requestAnimationFrame(() => { if (M && palco.clientWidth >= 2) ajustar(); }); if (cv.width > 2) return; }
     dpr = Math.min(2, window.devicePixelRatio || 1);
     zoom = Math.min(1.8, Math.max(.6, w / (VISTA * T)));
     vw = w / zoom;
@@ -545,6 +547,13 @@ const Masmorra = (() => {
     base.addEventListener('pointermove', e => { if (e.pointerId === id) mexer(e); });
     base.addEventListener('pointerup', soltar);
     base.addEventListener('pointercancel', soltar);
+    base.addEventListener('lostpointercapture', soltar); // a tela mudou com o dedo encostado
+    // app em segundo plano, janela sem foco ou tela trocada: solta joystick e teclas (o herói não sai andando sozinho)
+    largar = () => { id = null; joy.x = joy.y = 0; teclas.clear(); shift = false; bola.style.transform = ''; base.classList.remove('ativo', 'corre'); };
+    addEventListener('blur', () => largar());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) largar(); });
+    // o palco mudou de tamanho (girar o celular, barra do navegador, voltar de outra tela): o canvas acompanha
+    if (window.ResizeObserver) new ResizeObserver(() => { if (M && document.getElementById('t-masmorra').classList.contains('ativa')) ajustar(); }).observe(cv.parentElement);
     addEventListener('keydown', e => {
       if (e.key === 'Shift') shift = true;
       const d = TECLAS[(e.key || '').toLowerCase()];
@@ -981,13 +990,21 @@ const Masmorra = (() => {
   }
 
   // ---------- laço do jogo ----------
+  // um erro aqui dentro parava o jogo para sempre (às vezes no meio do escurecimento da troca de mapa: tela preta);
+  // agora ele vai para o diagnóstico e aparece a tela de recuperação
   function quadro(ms) {
     if (!M) return;
     if (!document.getElementById('t-masmorra').classList.contains('ativa')) return parar();
-    const dt = M.ultimo ? Math.min(.05, (ms - M.ultimo) / 1000) : 0;
-    M.ultimo = ms;
-    atualizar(dt);
-    desenhar(ms / 1000);
+    try {
+      const dt = M.ultimo ? Math.min(.05, (ms - M.ultimo) / 1000) : 0;
+      M.ultimo = ms;
+      atualizar(dt);
+      desenhar(ms / 1000);
+    } catch (e) {
+      parar();
+      Seguranca.recuperar('masmorra', e);
+      return;
+    }
     raf = requestAnimationFrame(quadro);
   }
 
@@ -1317,7 +1334,10 @@ const Masmorra = (() => {
     const ataca = m.carga > 0 || m.alerta > 0 || (m.avanco && m.avanco.carga > 0);
     const estado = m.estado === 'dormindo' || (m.estado === 'espreita' && m.alerta <= 0) ? 'dormindo' : ataca ? 'atacando' : parado || m.chefe ? 'idle' : 'andando';
     const cx = Math.cos(m.ang), cy = Math.sin(m.ang), dir = Math.abs(cx) > Math.abs(cy) ? (cx < 0 ? 'esquerda' : 'lado') : (cy < 0 ? 'cima' : 'baixo');
-    if (SJ() && SJ().monstroMapa(ctx, m, m.x * T + treme, (m.y + .3) * T - (m.voa ? 4 : 0), T * m.tam, { estado, dir, bioma: M.nome })) return;
+    if (SJ() && !m.semSprite) {
+      try { if (SJ().monstroMapa(ctx, m, m.x * T + treme, (m.y + .3) * T - (m.voa ? 4 : 0), T * m.tam, { estado, dir, bioma: M.nome })) return; }
+      catch (e) { m.semSprite = true; ctx.globalAlpha = 1; Seguranca.erro(e, 'sprite do monstro', e.stack); } // sprite com problema: fica a arte antiga
+    }
     if (img && img.complete && img.naturalWidth) {
       ctx.save();
       ctx.translate(m.x * T + treme, (m.y + .3) * T - pulo - voo);
@@ -1520,10 +1540,11 @@ const Masmorra = (() => {
 
   function parar() {
     cancelAnimationFrame(raf);
+    largar();
     teclas.clear();
     joy.x = joy.y = 0;
     shift = false;
-    if (M && M.mapa && M.vistoSujo) { gravarVistos(); M.op.aoSalvar(); }
+    if (M && M.mapa && M.vistoSujo) { try { gravarVistos(); M.op.aoSalvar(); } catch (e) { Seguranca.erro(e, 'parar masmorra', e.stack); } }
     Audio2.ambiente(null);
     Audio2.bioma(null);
     const bt = document.getElementById('mas-reinicia');
@@ -1565,7 +1586,8 @@ const Batalha = (() => {
     $b('b-carga').hidden = !o.carga;
     carga(0);
     relogio(0);
-    if (!(SJ() && SJ().batalha.abrir($b('b-arte'), m))) $b('b-arte').innerHTML = m.arte || desenharMonstro(m.tema, m.chefe);
+    const arteAntiga = () => { $b('b-arte').innerHTML = m.arte || desenharMonstro(m.tema, m.chefe); };
+    if (!(SJ() && SJ().batalha.abrir($b('b-arte'), m, arteAntiga))) arteAntiga(); // sprite com problema: volta a arte antiga
     $b('b-poderes').hidden = true;
     $b('b-efeitos').textContent = '';
     $b('b-dano').classList.remove('pop');
@@ -1579,6 +1601,7 @@ const Batalha = (() => {
     vidas(o.vidas);
     Audio2.musica(m.chefe ? 'chefao' : 'batalha');
     $b('b-poder').disabled = !o.aoPoder;
+    $b('b-dicabt').disabled = false;
     $b('b-poder').onclick = () => o.aoPoder && o.aoPoder();
     $b('b-dicabt').onclick = () => o.aoDica();
     if (m.chefe) { // entrada dramática: escurece, o chefão desce, nome grande, tremor
@@ -1685,7 +1708,9 @@ const Batalha = (() => {
       bt.textContent = o;
       r.appendChild(bt);
     });
-    r.onclick = e => { const bt = e.target.closest('.b-resp'); if (bt && !bt.disabled) op.aoResponder(+bt.dataset.i); };
+    // um toque só por pergunta: os botões travam no mesmo instante (toque duplo não dá dano nem XP em dobro)
+    r.onclick = e => { const bt = e.target.closest('.b-resp'); if (!bt || bt.disabled || r.dataset.travado) return; r.dataset.travado = 1; travar(); op.aoResponder(+bt.dataset.i); };
+    delete r.dataset.travado;
     const el = $b('b-fala'), n = q.texto.length, porVez = Math.max(1, Math.ceil(n / 28));
     let k = 0;
     clearInterval(fala);
@@ -1754,8 +1779,10 @@ const Batalha = (() => {
     $b('b-dica').innerHTML = `💡 ${esc(txt)}${visual ? `<div class="visual">${visual}</div>` : ''}`;
   }
 
+  const fimDaLuta = () => { $b('b-poder').disabled = true; $b('b-dicabt').disabled = true; $b('b-poderes').hidden = true; }; // nada clicável depois do fim
   function vitoria(txt, cb, chefe) {
     $b('b-respostas').innerHTML = '';
+    fimDaLuta();
     if (chefe) { banner('🏆 Vitória!'); confete(); }
     if (!(SJ() && SJ().batalha.evento('morrendo'))) animar($b('b-arte'), 'desmaia');
     numero(txt, '#FFE48A');
@@ -1766,6 +1793,7 @@ const Batalha = (() => {
 
   function derrota(cb) {
     $b('b-respostas').innerHTML = '';
+    fimDaLuta();
     animar($b('b-heroi'), 'desmaia');
     $b('b-fala').textContent = '💔 Sem corações! De volta ao início';
     Audio2.sfx('derrota');
