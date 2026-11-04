@@ -79,10 +79,11 @@ const SpritesJogo = (() => {
   let leve = false;
   const B = { ativo: false, el: null, cv: null, g: null, id: null, raf: 0, ult: 0, quadro: 0, media: 1 / 60, ferido: -9, ataque: -9, forte: false, trocou: -9, morte: null, fase: 1, carga: 0 };
   const batalha = {
-    abrir(el, mon) {
+    abrir(el, mon, aoFalhar) {
       batalha.fechar();
       const id = idDoMonstro(mon), d = def(id);
       if (!el || !d) return false;
+      B.aoFalhar = aoFalhar;
       el.innerHTML = '';
       el.classList.add('sprite');
       el.classList.toggle('mini', !!d.minichefe);
@@ -130,7 +131,13 @@ const SpritesJogo = (() => {
     else if (t - B.ataque < TEMPO.ataque) est = B.forte ? 'ataque2' : 'ataque1';
     else if (B.carga >= .5) { est = 'carregando'; prog = (B.carga - .5) / .5; }
     const alt = Math.min(ch * .96, cw * .96 * d.h / d.w) / (d.escala || 1);
-    Sprites.desenhar(g, B.id, W / 2, ch * 1.25, alt, { estado: valido(B.id, est), vista: 'batalha', t, prog, fase: B.fase });
+    try { Sprites.desenhar(g, B.id, W / 2, ch * 1.25, alt, { estado: valido(B.id, est), vista: 'batalha', t, prog, fase: B.fase }); }
+    catch (e) { // sprite com problema: fecha o canvas e volta a arte antiga, a batalha continua
+      if (typeof Seguranca !== 'undefined') Seguranca.erro(e, `sprite ${B.id}`, e.stack);
+      const falhou = B.aoFalhar;
+      batalha.fechar();
+      if (falhou) falhou();
+    }
   }
 
   // ---------- aliados ----------
@@ -139,7 +146,8 @@ const SpritesJogo = (() => {
     if (!def(id)) return false;
     const s = v(id), t = agora(), anda = info.ent ? movimento(s, info.ent.x, info.ent.y, t) : false;
     const est = info.estado || (t - s.erro < TEMPO.erro ? 'errando' : (info.feliz || t - s.feliz < TEMPO.feliz) ? 'feliz' : info.trabalhando ? 'martelando' : info.falando ? 'falando' : 'idle');
-    return Sprites.desenhar(ctx, id, x, y, tam, { estado: valido(id, est), vista: anda || info.lado ? 'lado' : 'frente', espelho: info.espelho != null ? !!info.espelho : anda && s.dir === 'esquerda', t });
+    try { return Sprites.desenhar(ctx, id, x, y, tam, { estado: valido(id, est), vista: anda || info.lado ? 'lado' : 'frente', espelho: info.espelho != null ? !!info.espelho : anda && s.dir === 'esquerda', t }); }
+    catch (e) { if (typeof Seguranca !== 'undefined') Seguranca.erro(e, `sprite ${id}`, e.stack); return false; } // aliado é enfeite: erro nele nunca para o jogo
   }
   // reações: 'feliz', 'erro', 'ataque'
   function evento(e, nome) {
@@ -152,7 +160,7 @@ const SpritesJogo = (() => {
   function retrato(el, nome, info = {}) {
     if (!el || !def(idAliado(nome))) return null;
     let cv = el.querySelector(`canvas[data-sprite="${nome}"]`);
-    if (cv) { cv._info = info; return cv; }
+    if (cv) { cv._info = info; if (cv._parado) cv._volta(); return cv; }
     const w = info.w || 72, h = info.h || 72, dpr = Math.min(2, window.devicePixelRatio || 1);
     cv = document.createElement('canvas');
     cv.dataset.sprite = nome;
@@ -164,8 +172,14 @@ const SpritesJogo = (() => {
     cv.style.height = h + 'px';
     if (info.antes) el.prepend(cv); else el.appendChild(cv);
     const g = cv.getContext('2d');
+    // escondido (painel fechado) ou fora do documento: para de desenhar; retrato() de novo faz voltar
+    cv._volta = () => { cv._parado = false; requestAnimationFrame(passo); };
     const passo = () => {
-      if (!cv.isConnected) return;
+      if (!cv.isConnected || !cv.getClientRects().length) { // ainda entrando na tela: espera meio segundo antes de parar
+        if ((cv._espera = (cv._espera || 0) + 1) < 30) requestAnimationFrame(passo); else { cv._parado = true; cv._espera = 0; }
+        return;
+      }
+      cv._espera = 0;
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.clearRect(0, 0, w, h);
       const d = def(idAliado(nome)), alt = Math.min(h * .9, w * .92 * d.h / d.w);

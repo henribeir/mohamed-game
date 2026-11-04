@@ -350,6 +350,12 @@ const Vila = (() => {
     base.addEventListener('pointermove', e => { if (e.pointerId === id) mexer(e); });
     base.addEventListener('pointerup', soltar);
     base.addEventListener('pointercancel', soltar);
+    base.addEventListener('lostpointercapture', soltar); // a tela mudou com o dedo encostado
+    // app em segundo plano ou janela sem foco: solta joystick e teclas (o herói não sai andando sozinho)
+    const largar = () => { id = null; joy.x = joy.y = 0; teclas.clear(); bola.style.transform = ''; base.classList.remove('ativo'); };
+    addEventListener('blur', largar);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) largar(); });
+    if (window.ResizeObserver) new ResizeObserver(() => { if (cv && $v('t-aldeia').classList.contains('ativa')) ajustar(); }).observe(cv.parentElement);
     addEventListener('keydown', e => {
       if (!$v('t-aldeia').classList.contains('ativa')) return;
       if (e.key === 'Escape') { ferramenta = null; soltarSegurado(); fecharMenu(); if (modo === 'construir') pintarBarra(); return; }
@@ -506,10 +512,12 @@ const Vila = (() => {
   // ---------- laço ----------
   function quadro(ms) {
     if (!$v('t-aldeia').classList.contains('ativa')) return parar();
-    const dt = ultimo ? Math.min(.05, (ms - ultimo) / 1000) : 0;
-    ultimo = ms;
-    atualizar(dt);
-    desenhar(ms / 1000);
+    try {
+      const dt = ultimo ? Math.min(.05, (ms - ultimo) / 1000) : 0;
+      ultimo = ms;
+      atualizar(dt);
+      desenhar(ms / 1000);
+    } catch (e) { parar(); Seguranca.recuperar('vila', e); return; } // erro aqui parava a vila para sempre
     raf = requestAnimationFrame(quadro);
   }
   function parar() {
@@ -1011,7 +1019,7 @@ const Vila = (() => {
   });
 
   return {
-    abrir, estudo, sementes, gemas, bau, chefao,
+    abrir, parar, estudo, sementes, gemas, bau, chefao,
     info: () => (garantir(), { itens: V.itens.length, modo, ferramenta, baldes: V.baldes, sementes: { ...V.sementes }, nivel: nivelHoje(), P: P && { x: P.x, y: P.y } }),
     _dev: { V: () => V, tocar, usar: it => usar(it), cam, P: () => P, diaNum, reindexar, desenhar: () => desenhar(0) }
   };

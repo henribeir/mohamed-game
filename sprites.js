@@ -14,10 +14,11 @@ window.Sprites = (() => {
       if (!d) return false;
       const k = tam ? tam * (d.escala || 1) / d.h : 1;
       ctx.save();
-      ctx.translate(x, y);
-      ctx.scale(o.espelho ? -k : k, k);
-      d.desenhar(ctx, { ...o, estado: o.estado || 'idle', vista: o.vista || 'frente', t: o.t != null ? o.t : performance.now() / 1000 });
-      ctx.restore();
+      try {
+        ctx.translate(x, y);
+        ctx.scale(o.espelho ? -k : k, k);
+        d.desenhar(ctx, { ...o, estado: o.estado || 'idle', vista: o.vista || 'frente', t: o.t != null ? o.t : performance.now() / 1000 });
+      } finally { ctx.restore(); } // um erro no desenho não deixa o canvas torto para o resto do jogo
       return true;
     }
   };

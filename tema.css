@@ -253,3 +253,16 @@ body:has(#t-aldeia.ativa .vila-barra:not([hidden])) .som-bt{bottom:calc(150px + 
 .mel-caixa .retrato-sprite{margin-bottom:-6px}
 .des-amigos{display:flex;align-items:flex-end;gap:2px;margin-left:6px}
 .des-amigos .retrato-sprite{margin:-12px 0 -6px}
+
+/* ---------- recuperação, versão nova e diagnóstico (seguranca.js) ---------- */
+.recupera{position:fixed;top:0;right:0;bottom:0;left:0;z-index:200;display:grid;place-items:center;padding:24px;background:#030409F2;cursor:pointer;animation:fade .2s}
+.recupera .caixa{max-width:340px;text-align:center}
+.aviso-versao{position:fixed;left:50%;bottom:calc(78px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:150;max-width:calc(100% - 24px);padding:12px 18px;border-radius:999px;background:linear-gradient(135deg,#7B2FF7,#22E8FF);color:#fff;font-size:15px;font-weight:900;box-shadow:0 8px 30px #000A,0 0 0 2px #FFFFFF33;animation:fade .3s}
+.link-diag{display:block;margin:14px auto 0;padding:6px 10px;font-size:13px;font-weight:700;color:var(--tx2,#8A86A8);opacity:.75;text-decoration:underline}
+.caixa.diag textarea{width:100%;min-height:220px;margin:10px 0 14px;padding:10px;border-radius:12px;border:1px solid #22E8FF55;background:#0B1030;color:#DCE3FF;font:12px/1.35 ui-monospace,monospace;-webkit-user-select:text;user-select:text}
+.teste-q{place-items:start center;overflow:auto}
+.teste-q .caixa{max-width:min(960px,96vw);max-height:none}
+.tq{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px;font-variant-numeric:tabular-nums}
+.tq th,.tq td{padding:4px 6px;border-bottom:1px solid #22E8FF22;text-align:right}
+.tq th{font-size:11px;color:#9AA4D6;text-align:right}
+.tq tr:last-child td{font-weight:900;border-top:2px solid #22E8FF55}
