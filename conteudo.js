@@ -25,7 +25,12 @@ function embaralhar(lista) {
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
   return a;
 }
-const distintos = (gerar, qtd) => { const s = new Set(); while (s.size < qtd) s.add(gerar()); return [...s]; };
+// sem limite, uma faixa pequena demais travava a página para sempre; agora desiste (o sorteio de perguntas tenta outro modelo)
+const distintos = (gerar, qtd) => {
+  const s = new Set();
+  for (let t = 0; s.size < qtd; t++) { if (t > 500) throw new Error(`distintos: faixa pequena para ${qtd}`); s.add(gerar()); }
+  return [...s];
+};
 
 const vf = (pergunta, resposta, dica, extra) => ({ tipo: 'vf', pergunta, resposta, dica, ...extra });
 const fixa = (pergunta, opcoes, resposta, dica, extra) => ({ tipo: 'escolha', pergunta, opcoes, resposta, dica, ...extra });
@@ -35,7 +40,7 @@ const digitar = (pergunta, resposta, dica, extra) => ({ tipo: 'digitar', pergunt
 // números próximos e distintos do certo (sem negativos)
 function vizinhos(certo, qtd = 2, raio = 3) {
   const s = new Set([certo]);
-  while (s.size < qtd + 1) { const v = certo + rnd(-raio, raio); if (v >= 0) s.add(v); }
+  for (let t = 0; s.size < qtd + 1; t++) { const r = raio + Math.floor(t / 40); const v = certo + rnd(-r, r); if (v >= 0) s.add(v); } // faixa curta: o raio cresce aos poucos (sempre termina)
   return [...s];
 }
 
@@ -45,7 +50,13 @@ const naoNatural = () => sortear([
   () => rnd(0, 9) + ',' + rnd(1, 9),
   () => rnd(1, 4) + '/' + rnd(5, 9)
 ])();
-const naoNaturais = qtd => distintos(naoNatural, qtd);
+// distintos também no valor: 2/5 e 0,4 (ou 3/6 e 4/8) não aparecem juntos
+const valorNaoNatural = t => { const s = String(t).replace('−', '-'); if (s.includes('/')) { const [a, b] = s.split('/').map(Number); return a / b; } return Number(s.replace(',', '.')); };
+const naoNaturais = qtd => {
+  const lista = [], valores = new Set();
+  for (let t = 0; lista.length < qtd && t < 500; t++) { const x = naoNatural(), v = valorNaoNatural(x).toFixed(6); if (!valores.has(v)) { valores.add(v); lista.push(x); } }
+  return lista;
+};
 
 // dica visual: reta numérica com 11 marcas (destaca "marca"; "de" desenha o salto)
 function reta(marca, ini = Math.max(0, marca - 5), de) {
@@ -787,7 +798,7 @@ const comparar = (a, b) => fixa(`${fmt(a)} ? ${fmt(b)}`, ['<', '=', '>'], relaca
       [...tabuada([5], ['conta', 'escolha', 'falta', 'grade']), () => { const n = rnd(1, 10) * 2; return digitar(`5 × ${n} = ?`, 5 * n, `10 × ${n} = ${10 * n}; metade = ${5 * n}`); }],
       () => digitar('5 × 12 = ?', 60, '10 × 12 = 120; metade = 60')),
     lic('Pula de 5 em 5', '🦘', ['Pulos', 'Tabuada do 5 termina em 0 ou 5'],
-      [...tabuada(T, ['padrao', 'ligar', 'grade']), () => { const n = rnd(1, 20) * 5 + sortear([0, 0, 1, 3]); return vf(`${n} está na tabuada do 5?`, n % 5 === 0, 'Termina em 0 ou 5? Está!'); }],
+      [...tabuada(T, ['padrao', 'ligar', 'grade']), () => { const n = rnd(1, 10) * 5 + sortear([0, 0, 1, 3]); return vf(`${n} está na tabuada do 5?`, n % 5 === 0, 'Termina em 0 ou 5? Está!'); }], // até 5 × 10: "90 está na tabuada do 5?" dividia opiniões
       () => padrao(['5, 10, 15', '20, 25, 30'], '35, ?', 40, 'De 5 em 5 🦘')),
     lic('Contra o tempo', '⏱', ['Relâmpago 3, 4 e 5', 'Comece pelo que você já sabe'], tabuada(T, ['tempo', 'tempo', 'tempoLigar']), () => rapido(digitar('5 × 5 = ?', 25, '5 × 5 = 25'), 8))
   ], ['Mestre do 3, 4 e 5', '×4 = dobro do dobro · ×5 = metade do ×10'], () => digitar('3 × 4 × 5 = ?', 60, '3 × 4 = 12; 12 × 5 = 60'));
@@ -950,7 +961,8 @@ const comparar = (a, b) => fixa(`${fmt(a)} ? ${fmt(b)}`, ['<', '=', '>'], relaca
   const L3 = [
     () => ligar('Ligue as cartas da família 🃏', paresUnicos(() => { const [a, b, c] = familia(); return [`${a} × ${b} = ${c}`, `${c} ÷ ${a} = ${b}`]; }), 'Mesmos 3 números, contas irmãs'),
     () => { const [a, b, c] = familia(); return digitar(`Família ${a}, ${b}, ${c}: ${c} ÷ ${a} = ?`, b, `${a} × ${b} = ${c}`); },
-    () => { const [a, b, c] = familia(), e = c + sortear([a, -a, 1]); return escolha(`Qual é da família ${a}, ${b}, ${c}?`, [`${c} ÷ ${a}`, `${e} ÷ ${a}`, `${c} ÷ ${a + 1}`], `${c} ÷ ${a}`, 'Use só os 3 números da família'); },
+    // o divisor errado nunca é o b (com b = a + 1, "c ÷ b" também era da família: duas certas)
+    () => { const [a, b, c] = familia(), e = c + sortear([a, -a, 1]), x = [a + 1, a + 2, a - 1].find(k => k !== b && k > 1); return escolha(`Qual é da família ${a}, ${b}, ${c}?`, [`${c} ÷ ${a}`, `${e} ÷ ${a}`, `${c} ÷ ${x}`], `${c} ÷ ${a}`, 'Use só os 3 números da família'); },
     () => { const [a, b, c] = familia(); return vf(`${c} ÷ ${b} = ${a} é da família ${a}, ${b}, ${c}?`, true, `${b} × ${a} = ${c}`); }
   ];
   const S3 = () => digitar('Quantos fatos na família 2, 5, 10?', 4, '2×5, 5×2, 10÷2 e 10÷5');

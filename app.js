@@ -44,12 +44,35 @@ const novoEstado = () => ({
   cartas: [], medalhas: [], erros: [], seguidos: 0,
   itens: { cores: [], acessorios: [] }, frases: [], andar: null,
   revisao: [], streak: { dias: 0, ultimo: '' }, moedas: 0, masmorras: {}, aldeia: { lotes: [] },
-  gemas: 0, tempos: {}, config: { calmo: false }, extras: { coracao: 0, dica: 0, lanterna: 0 }
+  gemas: 0, tempos: {}, config: { calmo: false }, extras: { coracao: 0, dica: 0, lanterna: 0 },
+  historico: { n: 0, recentes: [], dia: '', hoje: [] } // perguntas já feitas (questoes.js): sem repetir as 40 últimas nem as do dia
 });
 let estado = carregar();
+// save quebrado não derruba o jogo: JSON inválido ganha uma cópia antes de recomeçar; campos de tipo errado voltam ao padrão
 function carregar() {
-  try { return { ...novoEstado(), ...JSON.parse(localStorage.getItem(CHAVE) || '{}') }; }
-  catch (e) { return novoEstado(); }
+  let bruto = null;
+  try { bruto = localStorage.getItem(CHAVE); } catch (e) { return novoEstado(); }
+  if (!bruto) return novoEstado();
+  try { return reparar(JSON.parse(bruto)); } catch (e) {
+    try { localStorage.setItem(`${CHAVE}.corrompido.${Date.now()}`, bruto); } catch (e2) {}
+    Seguranca.erro('Save corrompido: ' + e.message, 'carregar');
+    return novoEstado();
+  }
+}
+function reparar(salvo) {
+  const base = novoEstado(), r = { ...base, ...(salvo && typeof salvo === 'object' ? salvo : {}) };
+  for (const [k, b] of Object.entries(base)) {
+    const v = r[k];
+    if (Array.isArray(b)) r[k] = Array.isArray(v) ? v : b;
+    else if (b && typeof b === 'object') r[k] = { ...b, ...(v && typeof v === 'object' && !Array.isArray(v) ? v : {}) };
+    else if (typeof b === 'number') r[k] = Number.isFinite(v) ? v : b;
+    else if (typeof b === 'string' || typeof b === 'boolean') r[k] = typeof v === typeof b ? v : b;
+  }
+  r.revisao = r.revisao.filter(x => x && typeof x.chave === 'string' && x.ex && typeof x.ex.pergunta === 'string');
+  r.erros = r.erros.filter(x => x && typeof x === 'object');
+  r.cartas = r.cartas.filter(x => typeof x === 'string');
+  r.masmorras = Object.fromEntries(Object.entries(r.masmorras).filter(([, p]) => p && typeof p === 'object' && Array.isArray(p.pegos)));
+  return r;
 }
 function salvar() { try { localStorage.setItem(CHAVE, JSON.stringify(estado)); } catch (e) {} }
 
@@ -161,10 +184,48 @@ function desenharPersonagem(p = {}, pose = 'parado', dir = 'baixo') {
 // ---------- navegação ----------
 const TELAS = { 't-inicio': telaInicio, 't-personagem': telaPersonagem, 't-mapa': telaMapa, 't-aldeia': telaAldeia, 't-album': telaAlbum, 't-relatorio': () => Relatorio.tela(), 't-masmorra': telaMasmorra };
 function irPara(id) {
+  const antes = $('.tela.ativa');
+  if (antes && antes.id !== id) sairDaTela(antes.id);
   $$('.tela').forEach(t => t.classList.toggle('ativa', t.id === id));
   window.scrollTo(0, 0);
-  if (TELAS[id]) TELAS[id]();
+  Seguranca.passo(`tela ${id}`);
+  if (!TELAS[id]) return;
+  try { TELAS[id](); } catch (e) { Seguranca.recuperar(`abrir ${id}`, e); }
 }
+// ao sair de uma tela: para os laços, os relógios e os painéis dela (nada fica rodando escondido)
+function sairDaTela(id) {
+  if (id === 't-masmorra') {
+    if (B) { B = null; clearInterval(relogioB); }
+    Batalha.fechar();
+    $('#desafio').hidden = true;
+    $('#melhoria').hidden = true;
+    Masmorra.parar();
+  } else if (id === 't-aldeia') Vila.parar();
+}
+// botão voltar do Android: uma entrada "armadilha" fica sempre no topo do histórico. Voltar cai nela e o app decide:
+// fecha a janela aberta, volta ao mapa ou fica na batalha; só no mapa, sem nada aberto, o voltar sai do app
+const TELAS_BASE = ['t-mapa', 't-inicio'];
+const armarVoltar = () => { try { history.pushState({ mohamed: 'armadilha' }, ''); } catch (e) {} };
+addEventListener('popstate', e => {
+  if (e.state && e.state.mohamed === 'armadilha') return;
+  const atual = ($('.tela.ativa') || {}).id, naBatalha = B && !$('#batalha').hidden, sobre = $$('.sobre').pop();
+  if (naBatalha) { toast('⚔️ Termine a batalha primeiro'); return armarVoltar(); }
+  if (sobre) { const bt = sobre.querySelector('.btn'); if (bt) bt.click(); return armarVoltar(); } // a janela fecha pelo botão dela
+  if (atual && !TELAS_BASE.includes(atual)) { irPara(estado.criado ? 't-mapa' : 't-inicio'); return armarVoltar(); }
+  try { history.back(); } catch (e2) {} // no mapa: sai do app
+});
+// tela de recuperação: fecha batalha, painéis e laços, salva e volta ao mapa (o progresso continua no localStorage)
+function restaurarApp() {
+  if (B) { B = null; clearInterval(relogioB); }
+  try { Batalha.fechar(); } catch (e) {}
+  try { Masmorra.parar(); } catch (e) {}
+  try { Vila.parar(); } catch (e) {}
+  ['#desafio', '#melhoria'].forEach(s => { const el = $(s); if (el) el.hidden = true; });
+  $$('.sobre').forEach(el => el.remove());
+  salvar();
+  irPara(estado.nome ? (estado.criado ? 't-mapa' : 't-personagem') : 't-inicio');
+}
+Seguranca.aoRestaurar(restaurarApp);
 
 // ---------- tela inicial ----------
 function telaInicio() {
@@ -496,48 +557,83 @@ function abrirMercador(fim) {
   };
 }
 
-// ---------- perguntas da batalha: o motor atual vira 4 respostas ----------
-const TIPOS_BATALHA = ['escolha', 'vf', 'digitar', 'padrao', 'grade', 'tabuleiro', 'repartir'];
-function paraBatalha(ex) {
-  if (!ex || !TIPOS_BATALHA.includes(ex.tipo)) return null; // arrastar, ligar, reta… ficam para baús e portas
-  const texto = (ex.tipo === 'padrao' ? [...ex.linhas, ex.ultima.includes('?') ? ex.ultima : ex.ultima + ' ?'].join('  ·  ')
-    : ex.tipo === 'grade' ? `${ex.a} × ${ex.b} = ?` : ex.pergunta).replace(/^(⏱ |🔁 )/, '');
-  const base = { ex, texto, dica: ex.dica || 'Pense com calma', visual: ex.visual || '', conta: ex.conta || texto };
-  if (ex.tipo === 'vf') return { ...base, opcoes: ['✔', '✘'], certa: ex.resposta ? 0 : 1 };
-  const txt = v => (typeof v === 'number' ? fmt(v) : String(v));
-  const certo = ex.tipo === 'escolha' ? txt(ex.opcoes.find(o => norm(o) === norm(ex.resposta))) : txt(ex.resposta);
-  const ops = ex.tipo === 'escolha' ? ex.opcoes.map(txt) : [certo];
-  // respostas numéricas: completa até 4 com números perto (inclui o erro de sinal)
-  if (/^-?\d+$/.test(norm(certo))) {
-    const n = Number(norm(certo)), neg = n < 0 || /−/.test(texto), usadas = new Set(ops.map(norm));
-    for (const v of embaralhar([n + 1, n - 1, n + 2, n - 2, n + 10, n - 10, -n, n * 2])) {
-      if (ops.length >= 4) break;
-      if (v !== n && (neg || v >= 0) && !usadas.has(String(v))) { usadas.add(String(v)); ops.push(fmt(v)); }
-    }
+// ---------- perguntas da batalha (questoes.js): 4 respostas, uma só certa, sem repetir ----------
+const paraBatalha = ex => Questoes.paraBatalha(ex);
+const historicoDoAluno = () => Questoes.historico(estado.historico);
+
+// de qual modelo (dia, lição, posição) saiu cada exercício: o reforço de um erro sai do mesmo modelo com números novos
+const ORIGEM = new Map();
+DIAS.slice(0, 18).forEach(d => (d.licoes || []).forEach((l, li) => (l.modelos || []).forEach((m, mi) => { if (!ORIGEM.has(m)) ORIGEM.set(m, `${d.n}:${li}:${mi}`); })));
+function modeloDaOrigem(o) {
+  const [n, li, mi] = String(o || '').split(':').map(Number), l = DIAS[n - 1] && (DIAS[n - 1].licoes || [])[li];
+  return (l && l.modelos && l.modelos[mi]) || null;
+}
+// erros antigos (sem origem guardada): acha o modelo pelo molde do texto ("# × # = ?")
+const moldeTxt = s => String(s).replace(/^(⏱ |🔁 )/, '').replace(/[−-]?\d+([,.]\d+)?/g, '#');
+const ORIGEM_DO_MOLDE = new Map();
+function origemPeloMolde(r) {
+  const molde = moldeTxt(r.ex.pergunta), k = `${r.dia}|${molde}`;
+  if (!ORIGEM_DO_MOLDE.has(k)) {
+    let achou = null;
+    for (const m of modelosDos([r.dia])) { for (let t = 0; t < 4 && !achou; t++) { try { if (moldeTxt(m().pergunta) === molde) achou = ORIGEM.get(m) || null; } catch (e) {} } if (achou) break; }
+    ORIGEM_DO_MOLDE.set(k, achou);
   }
-  const lista = embaralhar(ops);
-  return { ...base, opcoes: lista, certa: lista.findIndex(o => norm(o) === norm(certo)) };
+  return ORIGEM_DO_MOLDE.get(k);
+}
+
+// reforço: uma conta errada volta depois de pelo menos 3 perguntas, com números (ou pergunta) diferentes
+function reforcoDoTema(dias, tipos, hist) {
+  const n = hist.n(), prontos = estado.revisao.filter(r => (!dias || dias.includes(r.dia)) && (r.apos == null || r.apos <= n));
+  if (!prontos.length || Math.random() > .35) return null;
+  let x = Math.random() * prontos.reduce((t, r) => t + r.vezes, 0), k = 0; // as mais erradas saem mais
+  while (k < prontos.length - 1 && (x -= prontos[k].vezes) > 0) k++;
+  return varianteDoErro(prontos[k], tipos, hist);
+}
+function varianteDoErro(r, tipos, hist) {
+  const origem = r.origem || origemPeloMolde(r), modelo = modeloDaOrigem(origem);
+  if (!modelo) return null;
+  const [n, li] = origem.split(':').map(Number), irmaos = (DIAS[n - 1].licoes[li].modelos || []).filter(m => m !== modelo);
+  const igual = r.ex && Questoes.paraBatalha(r.ex), chaveVelha = igual ? Questoes.chave(igual) : r.chave;
+  for (let t = 0; t < 40; t++) {
+    const m = t < 25 || !irmaos.length ? modelo : sortear(irmaos); // modelo sem números: vem outra pergunta da mesma lição
+    let ex;
+    try { ex = m(); } catch (e) { continue; }
+    if (tipos && !tipos.includes(ex.tipo)) continue;
+    const q = Questoes.paraBatalha(ex);
+    if (!q) continue;
+    const k = Questoes.chave(q);
+    if (k === r.chave || k === chaveVelha || hist.recente(k, 40) || !Questoes.validar(q).ok) continue;
+    q.ex = { ...q.ex, revisao: r.chave, diaOrigem: r.dia, origem: ORIGEM.get(m) || origem };
+    q.texto = '🔁 ' + q.texto;
+    return q;
+  }
+  return null;
+}
+// sem nenhuma pergunta nova possível: uma conta do tema com números sorteados (nunca a mesma "2 + 2")
+function planoB(tema) {
+  const a = rnd(2, 9), b = rnd(2, 9);
+  const ex = tema === 'Tabuada' ? digitar(`${a} × ${b} = ?`, a * b, `${a} × ${b} = ${a * b}`, { conta: `${a} × ${b}` })
+    : tema === 'Negativo' ? digitar(`${a} + (−${b}) = ?`, a - b, `${a} − ${b} = ${fmt(a - b)}`)
+    : tema === 'Divisão' ? digitar(`${a * b} ÷ ${a} = ?`, b, `${a} × ${b} = ${a * b}`)
+    : digitar(`${a * 3} + ${b * 4} = ?`, a * 3 + b * 4, `${a * 3} + ${b * 4} = ${a * 3 + b * 4}`);
+  return paraBatalha(ex);
 }
 
 // perguntas do monstro: o tema escolhe os dias; a sala puxa a lição do dia (o chefão, o dia todo);
-// "tipos" filtra o tipo de pergunta (fases do chefão); erros antigos voltam às vezes
-function geradorDoMonstro(tema, d, sala, tipos) {
-  const lic = sala === null ? null : d.licoes[sala], dias = DIAS_DO_TEMA[tema].filter(n => n <= d.n);
+// "tipos" filtra o tipo de pergunta (fases do chefão). Saco embaralhado de modelos, sem repetir as 40 últimas
+// nem as do dia, toda pergunta validada (uma só certa); erros voltam como reforço espaçado.
+// opcoes (teste): { hist, estat, semReforco }
+function geradorDoMonstro(tema, d, sala, tipos, opcoes = {}) {
+  const lic = sala === null || sala === undefined ? null : d.licoes[sala], dias = DIAS_DO_TEMA[tema].filter(n => n <= d.n);
   const doDia = DIAS_DO_TEMA[tema].includes(d.n) || d.mundo === 4 ? (lic && lic.modelos) || modelosDos([d.n]) : [];
-  const doTema = modelosDos(dias.length ? dias : [DIAS_DO_TEMA[tema][0]]), vistas = new Set();
-  const serve = q => q && (!tipos || tipos.includes(q.ex.tipo));
-  return () => {
-    const volta = Math.random() < .2 && errosParaRevisar(DIAS_DO_TEMA[tema], 1)[0];
-    const qv = volta && paraBatalha(volta);
-    if (serve(qv)) return qv;
-    for (let t = 0; t < 60; t++) {
-      const pool = doDia.length && Math.random() < .7 ? doDia : doTema;
-      const q = paraBatalha(sortear(pool)());
-      if (!q || (t < 45 && !serve(q))) continue;
-      if (!vistas.has(q.texto) || t > 50) { vistas.add(q.texto); return q; }
-    }
-    return paraBatalha(digitar('2 + 2 = ?', 4, '2 + 2 = 4'));
-  };
+  const doTema = modelosDos(dias.length ? dias : [DIAS_DO_TEMA[tema][0]]);
+  const hist = opcoes.hist || historicoDoAluno();
+  return Questoes.sorteador({
+    grupos: [{ modelos: doDia, peso: 7 }, { modelos: doTema, peso: 3 }], tipos, hist, estat: opcoes.estat,
+    origemDe: m => ORIGEM.get(m),
+    reforco: opcoes.semReforco ? null : () => reforcoDoTema(DIAS_DO_TEMA[tema], tipos, hist),
+    plano: () => planoB(tema)
+  });
 }
 
 // ---------- batalha por turnos: a matemática vira dano ----------
@@ -572,8 +668,15 @@ function tempoCarga() {
 }
 const blindado = () => B.mods.escudo && B.trinca < CONFIG_PRESSAO.escudo.acertos - 1;
 
-let relogioB = 0;
+let relogioB = 0, serieBatalha = 0;
+// cada batalha tem um número: timer de uma batalha antiga não mexe na nova; "acabou" trava tudo depois da vitória ou derrota
+const mesmaBatalha = id => B && B.id === id && !B.acabou;
+const depois = (ms, fn) => { const id = B && B.id; setTimeout(() => { if (mesmaBatalha(id)) fn(); }, ms); };
+// erro dentro da batalha: tela de recuperação em vez de batalha travada sem botões
 function batalhar(mon, coracoes, fim) {
+  try { iniciarBatalha(mon, coracoes, fim); } catch (e) { Seguranca.recuperar('batalha: início', e); }
+}
+function iniciarBatalha(mon, coracoes, fim) {
   const d = DIAS[diaAberto - 1], CF = CONFIG_MONSTROS.furtivo;
   mon.tema = temaValido(mon.tema, d);
   // ataque furtivo: o monstro começa com 25% de vida a menos e o primeiro acerto vale dobrado
@@ -585,39 +688,40 @@ function batalhar(mon, coracoes, fim) {
     mon, vidas: coracoes.vidas, max: coracoes.max, fim, seguidos: 0, erros: 0, q: null, t0: 0, travado: true, dica: false, fora: [], dobro: 0, escudo: false, fase: 0,
     primeiro: coracoes.furtivo ? CF.primeiroGolpe : 1, fraco: false, gerar: mon.chefe || mon.mini ? null : geradorDoMonstro(mon.tema, d, salaDoMonstro(d, mon)),
     pressa, temCarga: pressa && !!(mon.chefe || mon.mini), carga: 0, cargaMax: 0, ult: performance.now(),
-    mods: Object.fromEntries(mon.mods.map(m => [m, true])), trinca: 0, mutou: false
+    mods: Object.fromEntries(mon.mods.map(m => [m, true])), trinca: 0, mutou: false, id: ++serieBatalha, acabou: false
   };
+  Seguranca.passo(`batalha ${mon.nome} · ${mon.tema}${mon.chefe ? ' · chefão' : mon.mini ? ' · mini' : ''} · dia ${d.n}`);
   Batalha.abrir({ monstro: mon, personagem: estado.personagem, vidas: B.vidas, maxVidas: B.max, carga: B.temCarga, aoResponder: responderBatalha, aoDica: dicaBatalha, aoPoder: abrirPoderes });
   Batalha.blindado(blindado());
-  if (coracoes.furtivo) setTimeout(() => Batalha.banner('🗡️ Ataque furtivo!'), 150);
-  if (mon.mods.length) setTimeout(() => B && Batalha.banner(mon.mods.map(m => ICONE_MOD[m]).join(' ')), coracoes.furtivo ? 1400 : 250);
+  if (coracoes.furtivo) depois(150, () => Batalha.banner('🗡️ Ataque furtivo!'));
+  if (mon.mods.length) depois(coracoes.furtivo ? 1400 : 250, () => Batalha.banner(mon.mods.map(m => ICONE_MOD[m]).join(' ')));
   efeitos();
   clearInterval(relogioB);
   relogioB = setInterval(tiqueBatalha, 100);
-  setTimeout(proximaBatalha, mon.chefe ? 1500 : mon.mini ? 900 : 500);
+  depois(mon.chefe ? 1500 : mon.mini ? 900 : 500, proximaBatalha);
 }
 
 // barra de carga: enche enquanto a pergunta espera; pausa com a dica aberta, com a aba oculta e entre perguntas
-function tiqueBatalha() {
-  if (!B) return clearInterval(relogioB);
+const tiqueBatalha = Seguranca.proteger('batalha: carga', () => {
+  if (!B || B.acabou) return clearInterval(relogioB);
   const agora = performance.now(), dt = Math.min(.5, (agora - B.ult) / 1000);
   B.ult = agora;
   if (!B.temCarga || B.travado || B.t0 === Infinity || B.dica || document.hidden || !B.cargaMax) return;
   B.carga += dt;
   Batalha.carga(B.carga / B.cargaMax);
   if (B.carga >= B.cargaMax) ataqueCarregado();
-}
+});
 // a barra encheu: o monstro solta o ataque forte, que conta como um erro (sem ir para a lista de erros)
 function ataqueCarregado() {
-  if (!B || B.travado) return;
+  if (!B || B.travado || B.acabou) return;
   B.travado = true;
   Batalha.relogio(0);
   levarGolpe(-1, true);
 }
 
 // chefão: a fase muda com a vida (150 → 100 → 50) e traz outro tipo de pergunta
-function proximaBatalha() {
-  if (!B) return;
+const proximaBatalha = Seguranca.proteger('batalha: próxima', () => {
+  if (!B || B.acabou) return;
   if (B.mon.chefe || B.mon.mini) { // chefão: 3 fases · mini-chefe: 2 fases
     const fases = B.mon.chefe ? FASES_CHEFE : FASES_MINI, n = fases.length;
     const f = Math.min(n, n - Math.ceil((B.mon.vida / B.mon.max) * n) + 1);
@@ -626,15 +730,16 @@ function proximaBatalha() {
       B.gerar = geradorDoMonstro(B.mon.tema, DIAS[diaAberto - 1], null, fases[f - 1].tipos);
       Batalha.fase(f, fases[f - 1].rotulo);
       if (f > 1) som('chefe');
-      return setTimeout(perguntarBatalha, 700);
+      return depois(700, perguntarBatalha);
     }
   }
   perguntarBatalha();
-}
+});
 
-function perguntarBatalha() {
-  if (!B) return;
+const perguntarBatalha = Seguranca.proteger('batalha: pergunta', () => {
+  if (!B || B.acabou) return;
   B.q = B.gerar();
+  historicoDoAluno().marcar(Questoes.chave(B.q)); // entra no histórico ao aparecer
   B.travado = false;
   B.dica = false;
   B.fora = [];
@@ -643,31 +748,34 @@ function perguntarBatalha() {
   B.cargaMax = B.temCarga ? tempoCarga() : 0;
   Batalha.carga(0);
   Batalha.furia(furioso());
+  const id = B.id;
   Batalha.perguntar(B.q, () => {
-    if (!B) return;
+    if (!mesmaBatalha(id)) return;
     B.t0 = B.ult = performance.now();
     if (B.pressa) Batalha.relogio(CONFIG_PRESSAO.rapido.segundos);
   });
-}
+});
 
-function responderBatalha(i) {
-  if (!B || B.travado) return;
+const responderBatalha = Seguranca.proteger('batalha: resposta', i => {
+  if (!B || B.travado || B.acabou || !B.q || !(i >= 0 && i < B.q.opcoes.length)) return; // toque duplo ou depois do fim: ignora
   B.travado = true;
-  const C = CONFIG_BATALHA, P = CONFIG_PRESSAO, q = B.q, certo = i === q.certa, seg = (performance.now() - B.t0) / 1000;
+  const C = CONFIG_BATALHA, P = CONFIG_PRESSAO, q = B.q, certo = i === q.certa, seg = (performance.now() - B.t0) / 1000, id = B.id;
   Batalha.relogio(0);
   if (!B.dica && seg >= 0 && seg < Infinity) guardarTempo(B.mon.tema, seg); // com a dica aberta o tempo não conta na média
   registrar(certo, q.conta, B.mon.tema);
+  Seguranca.passo(`${certo ? '✔' : '✘'} ${q.texto.slice(0, 40)}`);
   if (certo && blindado()) { // escudo: o primeiro acerto só trinca; o próximo seguido já tira vida
     B.trinca++;
     B.seguidos++;
     estado.seguidos++;
+    if (q.ex.revisao) acertouRevisao(q.ex);
     salvar();
     Batalha.blindado(blindado());
-    Batalha.acerto(i, 0, B.mon.vida, B.mon.max, false, proximaBatalha, `${ICONE_MOD.escudo} Trincou!`);
+    Batalha.acerto(i, 0, B.mon.vida, B.mon.max, false, () => { if (mesmaBatalha(id)) proximaBatalha(); }, `${ICONE_MOD.escudo} Trincou!`);
     return;
   }
   if (certo) {
-    const rapido = B.pressa && seg <= P.rapido.segundos;
+    const rapido = B.pressa && seg >= 0 && seg <= P.rapido.segundos; // responder antes de a pergunta aparecer não conta como rápido
     let dano = C.danoBase + C.melhoriaDano * RUN.melhorias.dano + Math.min(C.bonusSeguidoMax, C.bonusSeguido * B.seguidos) + (rapido ? P.rapido.bonus : 0);
     if (B.dobro > 0) { dano *= 2; B.dobro--; } // Poder do 9
     if (B.primeiro > 1) { dano *= B.primeiro; B.primeiro = 1; } // primeiro golpe do ataque furtivo
@@ -680,18 +788,18 @@ function responderBatalha(i) {
     Relatorio.golpe(dano);
     salvar();
     efeitos();
-    Batalha.acerto(i, dano, B.mon.vida, B.mon.max, rapido, () => {
-      if (!B) return; // a batalha fechou durante a animação
+    Batalha.acerto(i, dano, B.mon.vida, B.mon.max, rapido, Seguranca.proteger('batalha: depois do acerto', () => {
+      if (!mesmaBatalha(id)) return; // a batalha fechou durante a animação
       if (B.mon.vida <= 0) return vencerBatalha();
-      if (mutar()) setTimeout(proximaBatalha, 900);
+      if (mutar()) depois(900, proximaBatalha);
       else proximaBatalha();
-    });
+    }));
   } else levarGolpe(i, false);
-}
+});
 
 // erro ou ataque carregado: escudo do aluno perdoa; na última fase do chefão o golpe tira 2 corações
 function levarGolpe(i, carregado) {
-  const C = CONFIG_BATALHA, q = B.q, d = DIAS[diaAberto - 1];
+  const C = CONFIG_BATALHA, q = B.q, d = DIAS[diaAberto - 1], id = B.id;
   const perde = B.escudo ? 0 : B.mon.chefe && B.fase === 3 ? C.coracoesUltimaFase : 1;
   if (B.escudo) B.escudo = false;
   else B.seguidos = 0;
@@ -701,12 +809,17 @@ function levarGolpe(i, carregado) {
   estado.seguidos = 0;
   if (!carregado) {
     estado.erros = [...estado.erros, { dia: d.n, licao: 'masmorra', pergunta: q.texto, dada: q.opcoes[i], certa: q.opcoes[q.certa], quando: Date.now() }].slice(-200);
-    guardarErro(q.ex, q.ex.diaOrigem || d.n);
+    guardarErro(q.ex, q.ex.diaOrigem || d.n, q);
   }
   salvar();
   efeitos();
   Batalha.blindado(blindado());
-  Batalha.erro(i, q.certa, q, B.vidas, perde ? `${carregado ? '💢 ' : ''}−${perde} ❤️` : '🛡️ Defendido!', () => (B.vidas > 0 ? proximaBatalha() : Batalha.derrota(() => terminarBatalha(false))));
+  if (B.vidas <= 0) B.acabou = true; // sem corações: nada mais conta até fechar
+  Batalha.erro(i, q.certa, q, B.vidas, perde ? `${carregado ? '💢 ' : ''}−${perde} ❤️` : '🛡️ Defendido!', Seguranca.proteger('batalha: depois do erro', () => {
+    if (!B || B.id !== id) return;
+    if (B.vidas > 0) proximaBatalha();
+    else Batalha.derrota(() => terminarBatalha(false));
+  }));
 }
 
 // mutante: com metade da vida troca para outro tema já estudado (uma vez por luta)
@@ -724,6 +837,8 @@ function mutar() {
 }
 
 function vencerBatalha() {
+  if (!B || B.acabou) return; // prêmio uma vez só
+  B.acabou = true;
   const P = B.mon.chefe ? CONFIG_BATALHA.recompensaChefe : CONFIG_BATALHA.recompensa, bonus = marcarStreak();
   estado.moedas += P.moedas;
   if (B.mon.chefe) Vila.chefao(); // chefão: gemas e sementes
@@ -753,7 +868,7 @@ function efeitos() {
 const dicasGratis = () => RUN.melhorias.dicas + estado.extras.dica - RUN.usados.dicasGratis;
 // dica: mostra a dica visual (grátis pelas melhorias ou paga com moedas); a barra de carga pausa enquanto ela está aberta
 function dicaBatalha() {
-  if (!B || B.travado || B.dica) return;
+  if (!B || B.travado || B.acabou || B.dica) return;
   if (dicasGratis() > 0) RUN.usados.dicasGratis++;
   else if (estado.moedas >= CONFIG_BATALHA.custoDica) estado.moedas -= CONFIG_BATALHA.custoDica;
   else { toast(`🪙 A dica custa ${CONFIG_BATALHA.custoDica}`); return; }
@@ -766,14 +881,14 @@ function dicaBatalha() {
 
 // poderes das cartas
 function abrirPoderes() {
-  if (!B || B.travado) return;
+  if (!B || B.travado || B.acabou) return;
   const c = cargas();
   som('clique');
   Batalha.poderes(Object.entries(PODERES).map(([id, p]) => ({ id, ...p, qtd: c[id] })), usarPoder);
 }
 
 function usarPoder(id) {
-  if (!B || B.travado || cargas()[id] <= 0) return;
+  if (!B || B.travado || B.acabou || cargas()[id] <= 0) return;
   if (id === 'dica') {
     const erradas = B.q.opcoes.map((_, k) => k).filter(k => k !== B.q.certa && !B.fora.includes(k));
     if (B.q.opcoes.length - B.fora.length <= 2 || !erradas.length) { toast('💡 Já está fácil!'); return; }
@@ -796,11 +911,22 @@ function usarPoder(id) {
 
 // ---------- baús e portas trancadas: arrastar para ℕ ou ℤ, ligar pares, reta… ----------
 const TIPOS_DESAFIO = ['conjunto', 'ligar', 'reta', 'ordenar', 'fila'];
+// baús e portas também não repetem (mesmo histórico das batalhas)
 function exercicioDeDesafio(d) {
+  const hist = historicoDoAluno();
+  let reserva = null;
   for (const pool of [modelosDos([d.n]), modelosDos(Array.from({ length: d.n }, (_, i) => i + 1))]) {
-    for (let t = 0; t < 60 && pool.length; t++) { const ex = sortear(pool)(); if (TIPOS_DESAFIO.includes(ex.tipo)) return ex; }
+    for (let t = 0; t < 60 && pool.length; t++) {
+      let ex;
+      try { ex = sortear(pool)(); } catch (e) { continue; }
+      if (!TIPOS_DESAFIO.includes(ex.tipo)) continue;
+      const k = Questoes.chaveDesafio(ex);
+      if (hist.usada(k)) { reserva = reserva || ex; continue; }
+      hist.marcar(k);
+      return ex;
+    }
   }
-  return ligar('Ligue conta e resultado 🔗', paresUnicos(() => { const a = rnd(1, 9), b = rnd(1, 9); return [`${a} + ${b}`, a + b]; }), 'Uma conta de cada vez');
+  return reserva || ligar('Ligue conta e resultado 🔗', paresUnicos(() => { const a = rnd(1, 9), b = rnd(1, 9); return [`${a} + ${b}`, a + b]; }), 'Uma conta de cada vez');
 }
 
 function desafio(tipo, fim) {
@@ -831,23 +957,23 @@ function desafio(tipo, fim) {
 }
 
 let diaAberto = 1;
-const norm = v => {
-  const s = String(v).replace(/−/g, '-').replace(/\s/g, '').toLowerCase();
-  return /^-?\d+$/.test(s) ? String(Number(s)) : s; // "−0" = "0", "07" = "7"
-};
+const norm = v => Questoes.normalizar(v); // "−0" = "0", "07" = "7", "6,0" = "6", "3 resto 1" = "3r1"
 
 // ---------- lista de erros: revisão (dia 19) e reforço nas batalhas ----------
 const chaveEx = ex => ex.pergunta + JSON.stringify(ex.pares || ex.itens || ex.linhas || ex.tokens || [ex.a, ex.b, ex.n, ex.atual, ex.de, ex.resposta]);
-function guardarErro(ex, dia) {
-  const chave = ex.revisao || chaveEx(ex), item = estado.revisao.find(r => r.chave === chave);
-  if (item) { item.vezes = Math.min(item.vezes + 1, 5); return; }
-  const { surpresa, limite, revisao, diaOrigem, ...copia } = ex;
+// q (opcional) é a pergunta da batalha: a chave fica normalizada; "apos" segura o reforço por pelo menos 3 perguntas
+function guardarErro(ex, dia, q) {
+  const chave = ex.revisao || (q ? Questoes.chave(q) : chaveEx(ex)), item = estado.revisao.find(r => r.chave === chave), apos = historicoDoAluno().n() + 3;
+  if (item) { item.vezes = Math.min(item.vezes + 1, 5); item.apos = apos; return; }
+  const { surpresa, limite, revisao, diaOrigem, visual, ...copia } = ex; // sem o desenho da dica: o save fica leve
   copia.pergunta = copia.pergunta.replace(/^(⏱ |🔁 )/, '');
-  estado.revisao = [...estado.revisao, { chave, dia, vezes: 2, ex: copia }].slice(-60);
+  estado.revisao = [...estado.revisao, { chave, dia, vezes: 2, apos, origem: ex.origem || null, ex: copia }].slice(-60);
 }
 function acertouRevisao(ex) {
   const i = estado.revisao.findIndex(r => r.chave === ex.revisao);
-  if (i >= 0 && --estado.revisao[i].vezes <= 0) estado.revisao.splice(i, 1);
+  if (i < 0) return;
+  estado.revisao[i].apos = historicoDoAluno().n() + 3; // acertou: se ainda falta treino, volta mais adiante
+  if (--estado.revisao[i].vezes <= 0) estado.revisao.splice(i, 1);
 }
 // sorteia contas da lista de erros: as mais erradas saem mais
 function errosParaRevisar(dias, qtd) {
@@ -963,8 +1089,11 @@ function abrirAjustes() {
     s.innerHTML = `<div class="caixa"><h2 class="titulo">⚙️ Ajustes</h2>
       <button class="ajuste${on ? ' ligado' : ''}" id="aj-calmo" aria-pressed="${on}"><span>🧘</span><b>Modo calmo</b><i>${on ? 'Ligado' : 'Desligado'}</i></button>
       <p class="sub">${on ? 'Sem barras de tempo ⏳' : 'Barras de tempo gentis ⏱'}</p>
-      <button class="btn" id="aj-ok">Ok ▶</button></div>`;
+      <button class="btn" id="aj-ok">Ok ▶</button>
+      <button class="link-diag" id="aj-diag">📋 Copiar diagnóstico</button></div>`;
     s.querySelector('#aj-calmo').onclick = () => { estado.config.calmo = !estado.config.calmo; salvar(); som('clique'); pintar(); };
+    // para o aluno mandar ao professor quando algo der errado: versão, aparelho, últimos erros e passos
+    s.querySelector('#aj-diag').onclick = async () => { som('clique'); if (await Seguranca.copiarDiagnostico()) toast('📋 Diagnóstico copiado ✔'); };
     s.querySelector('#aj-ok').onclick = () => { som('clique'); s.remove(); };
   };
   pintar();
@@ -1018,6 +1147,62 @@ function iniciarApp() {
     irPara('t-masmorra'); // o mapa abre a masmorra do dia
   };
   $('#bt-ajustes').onclick = abrirAjustes;
+  try { history.replaceState({ mohamed: 'base' }, ''); } catch (e) {}
+  armarVoltar();
   irPara(!estado.nome ? 't-inicio' : estado.criado ? 't-mapa' : 't-personagem');
 }
 iniciarApp();
+
+// ---------- ?teste=questoes: 3000 perguntas por dia da trilha, no navegador, sem rede (não mexe no histórico do aluno) ----------
+if (/[?&]teste=questoes\b/.test(location.search)) testeDeQuestoes();
+function testeDeQuestoes() {
+  const s = document.createElement('div');
+  s.className = 'sobre teste-q';
+  s.innerHTML = '<div class="caixa"><h2 class="titulo">🧪 Teste de questões</h2><p class="sub" id="tq-prog">Preparando…</p><div id="tq-res"></div></div>';
+  document.body.appendChild(s);
+  // um dia de jogo simulado: batalhas comuns (lições do dia), mini-chefes e chefões, com o mesmo sorteio das batalhas
+  const gerarDia = (n, total) => {
+    const d = DIAS[n - 1], hist = Questoes.historico({}), estat = { recusas: {}, repetidasDia: 0, planoB: 0 };
+    const temas = Object.keys(DIAS_DO_TEMA).filter(t => DIAS_DO_TEMA[t].some(x => x <= n)), doMundo = TEMAS_MONSTRO[d.mundo];
+    const salas = (d.licoes || []).map((l, i) => (l.chefao ? -1 : i)).filter(i => i >= 0);
+    const r = { dia: n, feitas: 0, distintas: 0, rep40: 0, repDia: 0, zero: 0, multi: 0, dupl: 0, recalculo: 0, recusas: estat.recusas, planoB: 0 };
+    const todas = new Set();
+    while (r.feitas < total) {
+      const x = Math.random(), tema = doMundo && Math.random() < .6 ? doMundo : sortear(temas);
+      const fases = x < .7 ? [null] : x < .85 ? FASES_MINI : FASES_CHEFE;
+      for (const f of fases) {
+        const ger = geradorDoMonstro(tema, d, f ? null : (salas.length ? sortear(salas) : 0), f ? f.tipos : undefined, { hist, estat, semReforco: true });
+        for (let k = 0; k < (f ? 2 : 5) && r.feitas < total; k++) {
+          const q = ger();
+          r.feitas++;
+          if (!q) { r.zero++; continue; }
+          const v = Questoes.validar(q), key = Questoes.chave(q);
+          if (v.modo === 'recalculo') r.recalculo++;
+          if (v.erros.some(e => /0 corretas|gabarito|sem gabarito/.test(e))) r.zero++;
+          if (v.erros.includes('2+ corretas')) r.multi++;
+          if (v.erros.includes('opções repetidas')) r.dupl++;
+          if (hist.recente(key, 40)) r.rep40++;
+          if (todas.has(key)) r.repDia++;
+          todas.add(key);
+          hist.marcar(key);
+        }
+      }
+    }
+    r.distintas = todas.size;
+    r.planoB = estat.planoB;
+    return r;
+  };
+  const pronto = res => {
+    window.resultadoTesteQuestoes = res;
+    const L = res.linhas, soma = k => L.reduce((t, x) => t + x[k], 0), recusas = {};
+    L.forEach(x => Object.entries(x.recusas).forEach(([m, c]) => { recusas[m] = (recusas[m] || 0) + c; }));
+    const linha = x => `<tr><td>${x.dia}</td><td>${x.feitas}</td><td>${x.distintas}</td><td>${x.rep40}</td><td>${x.repDia}</td><td>${x.zero}</td><td>${x.multi}</td><td>${x.dupl}</td><td>${Math.round((100 * x.recalculo) / x.feitas)}%</td></tr>`;
+    const tot = { dia: 'Total', feitas: soma('feitas'), distintas: soma('distintas'), rep40: soma('rep40'), repDia: soma('repDia'), zero: soma('zero'), multi: soma('multi'), dupl: soma('dupl'), recalculo: soma('recalculo') };
+    $('#tq-prog').textContent = tot.zero + tot.multi + tot.dupl + tot.rep40 === 0 ? '✅ Nenhuma pergunta com 0 ou 2+ respostas certas, nenhuma opção duplicada e nenhuma repetida em 40' : '⚠️ Veja os problemas na tabela';
+    $('#tq-res').innerHTML = `<table class="tq"><tr><th>Dia</th><th>Perguntas</th><th>Distintas</th><th>Repetidas em 40</th><th>Repetidas no dia</th><th>0 certas</th><th>2+ certas</th><th>Opções duplicadas</th><th>Recálculo</th></tr>${L.map(linha).join('')}${linha(tot)}</table>` +
+      `<p class="sub">Recusadas e refeitas pelo validador: ${Object.entries(recusas).map(([m, c]) => `${m} ${c}`).join(' · ') || 'nenhuma'}</p>` +
+      `<p class="sub">Normalização da resposta digitada: ${res.normalizacao.map(c => `${c.ok ? '✔' : '✘'} "${esc(c.a)}" = "${esc(c.b)}"`).join(' · ')}</p>`;
+  };
+  pronto.progresso = (dia, n) => { $('#tq-prog').textContent = `Gerando… dia ${dia} de ${n}`; };
+  Questoes.testar(gerarDia, pronto);
+}
